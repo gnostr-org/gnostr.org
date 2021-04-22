@@ -266,7 +266,7 @@ EOF
                 __get_os_arch_from_getprop
                 ;;
             version)
-                case $(uname | tr A-Z a-z) in
+                case $(os type) in
                     freebsd) freebsd-version ;;
                     openbsd) uname -r ;;
                     netbsd)  uname -r ;;
@@ -283,7 +283,7 @@ EOF
             *)  echo "$1: not support item."; return 1
         esac
     else
-        echo "only support one item."; return 1
+        echo "os command only support one item."; return 1
     fi
 }
 
