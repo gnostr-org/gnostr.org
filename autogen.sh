@@ -504,7 +504,11 @@ get_pkg_add_package_name_by_command_name() {
               echo "libtool" ;;
     autoreconf|autoconf)
               echo "autoconf-2.69p3" ;;
+    autoreconf-2.69|autoconf-2.69)
+              echo "autoconf-2.69p3" ;;
     automake|autoheader)
+              echo "automake-1.16.2" ;;
+    automake-1.16|autoheader-1.16)
               echo "automake-1.16.2" ;;
     autopoint) echo "gettext" ;;
     pkg-config) 
@@ -1049,12 +1053,17 @@ EOF
     echo "NATIVE_OS_VERS  = $NATIVE_OS_VERS"
     echo "NATIVE_OS_ARCH  = $NATIVE_OS_ARCH"
 
+    # https://www.openbsd.org/faq/ports/specialtopics.html
     if [ "$NATIVE_OS_TYPE" = 'openbsd' ] ; then
-        export AUTOCONF_VERSION='2.69'
-        export AUTOMAKE_VERSION='1.16'
+        [ -z "$AUTOCONF_VERSION" ] || export AUTOCONF_VERSION='2.69'
+        [ -z "$AUTOMAKE_VERSION" ] || export AUTOMAKE_VERSION='1.16'
+        
         echo
         echo "export AUTOCONF_VERSION=$AUTOCONF_VERSION"
         echo "export AUTOMAKE_VERSION=$AUTOMAKE_VERSION"
+        
+        required command autoconf-$AUTOCONF_VERSION ge "$AUTOCONF_VERSION_MREQUIRED"
+        required command automake-$AUTOMAKE_VERSION
     fi
 
     step "show current machine os effective user info"
