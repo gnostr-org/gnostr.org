@@ -26,7 +26,7 @@ locate `autogen.sh` in your project.
 
 a typical example of this file looks like as follows:
 
-```
+```bash
 required command cc
 required command pkg-config ge 0.18
 optional command python3    ge 3.5
