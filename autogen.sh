@@ -1085,7 +1085,7 @@ EOF
     echo "PROJECT_VERSION = $PROJECT_VERSION"
     
     # https://www.gnu.org/software/autoconf/manual/autoconf-2.69/html_node/Versioning.html
-    AUTOCONF_VERSION_MREQUIRED=$(grep 'AC_PREREQ\s*(\[[0-9]\.[0-9]\+\])' configure.ac | sed 's/AC_PREREQ\s*(\[\(.*\)\])/\1/')
+    AUTOCONF_VERSION_MREQUIRED=$(grep 'AC_PREREQ\s*(\[.*\])\s*$' configure.ac | sed 's/AC_PREREQ\s*(\[\(.*\)\])/\1/')
      
     step "load autogen.rc"
     if exists file autogen.rc ; then
