@@ -29,9 +29,10 @@ gen_config_post() {
     (__check_if_c_compiler_works) || die "$HOST_CC not works."
     
     step "build packcc"
+    . ./config.host
     for item in -DPCC_USE_SYSTEM_STRNLEN ""
     do
-        if run "$HOST_CC $HOST_CFLAGS $item misc/packcc/src/packcc.c" ; then
+        if run "$HOST_CC $HOST_CFLAGS $item -o packcc$host_os_exec_ext misc/packcc/src/packcc.c" ; then
             success "build packcc successfully."
             return 0
         fi
@@ -75,7 +76,7 @@ __check_if_c_compiler_works() {
     
     if run "$HOST_CC $HOST_CFLAGS test.c" ; then
         run ls
-        if exists file a.out.exe ; then
+        if exists file a.exe ; then
             run "echo "host_os_exec_ext='.exe'" > $PROJECT_DIR/config.host"
         else
             run "echo 'host_os_exec_ext='       > $PROJECT_DIR/config.host"
