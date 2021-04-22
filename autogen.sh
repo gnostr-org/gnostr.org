@@ -489,6 +489,7 @@ get_pkg_package_name_by_command_name() {
         make) echo 'gmake' ;;
        gmake) echo 'gmake' ;;
          gm4) echo 'm4'    ;;
+        perl) echo 'perl5' ;;
        gperf) echo 'gperf' ;;
         gsed) echo 'gnu-sed'  ;;
      objcopy) echo 'binutils' ;;
@@ -1024,10 +1025,10 @@ EOF
 
     step "check required"
     
-    required command perl
-    required command m4
     required command autoconf ge "$AUTOCONF_VERSION_MREQUIRED"
     required command automake
+    required command m4
+    required command perl
     required command make
     optional command gmake
     optional command bmake
