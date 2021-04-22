@@ -1024,6 +1024,9 @@ EOF
     echo "NATIVE_OS_VERS  = $NATIVE_OS_VERS"
     echo "NATIVE_OS_ARCH  = $NATIVE_OS_ARCH"
 
+    step "show current machine os effective user info"
+    id | tr ' ' '\n' | head -n 2
+
     step "show project info"
     
     PROJECT_DIR="$CURRENT_DIR"
