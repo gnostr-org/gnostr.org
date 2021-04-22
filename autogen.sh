@@ -779,7 +779,7 @@ __install_command_via_package_manager() {
         warn "can not found a package in $1 repo, who contains the $2 command."
         return 1
     else
-        print "🔥  ${COLOR_YELLOW}required command${COLOR_OFF} ${COLOR_GREEN}$2 $3 $4${COLOR_OFF}${COLOR_YELLOW}, but${COLOR_OFF} ${COLOR_GREEN}$2${COLOR_OFF} ${COLOR_YELLOW}command not found, we try to install it via${COLOR_OFF} ${COLOR_GREEN}$1${COLOR_OFF}\n"
+        print "🔥  ${COLOR_YELLOW}required command${COLOR_OFF} ${COLOR_GREEN}$2 $3 $4${COLOR_OFF}${COLOR_YELLOW}, but${COLOR_OFF} ${COLOR_GREEN}$2${COLOR_OFF} ${COLOR_YELLOW}command not found, try to install it via${COLOR_OFF} ${COLOR_GREEN}$1${COLOR_OFF}\n"
         if __install_package_via_package_manager "$1" "$PACKAGE_NAME" ; then
             echo
         else
@@ -819,7 +819,7 @@ handle_required_item() {
                         warn "no package manager found."
                         return 1
                     else
-                        echo "Found $(list_length $AVAILABLE_PACKAGE_MANAGER_LIST) package manager: $AVAILABLE_PACKAGE_MANAGER_LIST"
+                        echo "Found $(list_length $AVAILABLE_PACKAGE_MANAGER_LIST) package manager : ${COLOR_GREEN}$AVAILABLE_PACKAGE_MANAGER_LIST${COLOR_OFF}"
                     fi
                 fi
                 for pm in $AVAILABLE_PACKAGE_MANAGER_LIST
