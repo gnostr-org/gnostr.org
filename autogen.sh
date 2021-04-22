@@ -416,7 +416,12 @@ version_minor_of_version() {
 }
 
 version_sort() {
-    echo "$@" | tr ' ' '\n' | sort -V
+    # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/sort.html
+    # https://man.netbsd.org/NetBSD-8.1/i386/sort.1
+    case $(uname) in
+        NetBSD) echo "$@" | tr ' ' '\n' | sort -t. -n -k1,1 -k2,2 -k3,3 -k4,4 ;;
+             *) echo "$@" | tr ' ' '\n' | sort -V ;;
+    esac
 }
 
 # check if match the condition
@@ -481,6 +486,31 @@ command_version_match() {
         *)  exists command "$1" || return 1 ;;
     esac
     version_match "$(version_of_command "$1")" "$2" "$3"
+}
+
+get_pkgin_package_name_by_command_name() {
+    case $1 in
+      cc|gcc) echo 'gcc' ;;
+        make) echo 'gmake' ;;
+       gmake) echo 'gmake' ;;
+         gm4) echo 'm4'    ;;
+        perl) echo 'perl5' ;;
+       gperf) echo 'gperf' ;;
+        gsed) echo 'gnu-sed'  ;;
+     objcopy) echo 'binutils' ;;
+      protoc) echo 'protobuf' ;;
+      ps2pdf) echo "ghostscript" ;;
+    libtool|libtoolize|glibtool|glibtoolize)
+              echo "libtool" ;;
+    autoreconf|autoconf)
+              echo "autoconf" ;;
+    automake|autoheader)
+              echo "automake" ;;
+    autopoint) echo "gettext" ;;
+    pkg-config) 
+              echo "pkgconf" ;;
+        *) echo "$1"
+    esac
 }
 
 get_pkg_package_name_by_command_name() {
@@ -725,7 +755,7 @@ __available_package_manager_list() {
 __install_package_via_package_manager() {
     case $1 in
         pkg)     run $sudo pkg install -y "$2" ;;
-        pkgin)   run $sudo pkgin install -y "$2" ;;
+        pkgin)   run $sudo pkgin -y install "$2" ;;
         pkg_add) run $sudo pkg_add "$2" ;;
         brew)    run brew install "$2" ;;
         apt)     run $sudo apt -y install "$2" ;;
