@@ -483,6 +483,30 @@ command_version_match() {
     version_match "$(version_of_command "$1")" "$2" "$3"
 }
 
+get_pkg_package_name_by_command_name() {
+    case $1 in
+      cc|gcc) echo 'gcc' ;;
+        make) echo 'gmake' ;;
+       gmake) echo 'gmake' ;;
+         gm4) echo 'm4'    ;;
+       gperf) echo 'gperf' ;;
+        gsed) echo 'gnu-sed'  ;;
+     objcopy) echo 'binutils' ;;
+      protoc) echo 'protobuf' ;;
+      ps2pdf) echo "ghostscript" ;;
+    libtool|libtoolize|glibtool|glibtoolize)
+              echo "libtool" ;;
+    autoreconf|autoconf)
+              echo "autoconf" ;;
+    automake|autoheader)
+              echo "automake" ;;
+    autopoint) echo "gettext" ;;
+    pkg-config) 
+              echo "pkgconf" ;;
+        *) echo "$1"
+    esac
+}
+
 get_emerge_package_name_by_command_name() {
     case $1 in
       cc|gcc) echo 'gcc' ;;
