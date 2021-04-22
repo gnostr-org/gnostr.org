@@ -1,0 +1,86 @@
+# https://github.com/leleliu008/autogen.sh
+
+required command cc
+required command pkg-config ge 0.18
+optional command python3    ge 3.5
+
+gen_config_pre() {
+    step "gen config pre"
+    # https://lwn.net/Articles/839395/
+    # configure.ac:242: warning: The macro `AC_PROG_CC_C99' is obsolete.
+    if command_version_match autoconf ge '2.70' ; then
+       run sed_in_place '/AC_PROG_CC_C99/d' configure.ac               || return 1
+       run sed_in_place '/AC_PROG_CC_C99/d' m4/ax_prog_cc_for_build.m4 || return 1
+    fi
+}
+
+gen_config_post() {
+    step "convert optlib/*.ctags to optlib/*.c"
+    for input in optlib/*.ctags
+    do
+        output="${input%.ctags}.c"
+        printf "${COLOR_GREEN}./misc/optlib2c %-25s > %s${COLOR_OFF}\n" "$input" "$output"
+        ./misc/optlib2c "$input" > "$output" || return 1
+    done
+    
+    __check_if_c_compiler_installed
+    
+    step "check if $HOST_CC works."
+    (__check_if_c_compiler_works) || die "$HOST_CC not works."
+    
+    step "build packcc"
+    for item in -DPCC_USE_SYSTEM_STRNLEN ""
+    do
+        if run "$HOST_CC $HOST_CFLAGS $item misc/packcc/src/packcc.c" ; then
+            success "build packcc successfully."
+            return 0
+        fi
+    done
+    die "build packcc failed."
+}
+
+__check_if_c_compiler_installed() {
+    step "check if C compiler installed."
+    
+    if [ -z "$HOST_CC" ] ; then
+        for cc in cc gcc clang
+        do
+            if exists command "$cc" ; then
+                HOST_CC="$cc"
+                break
+            fi
+        done
+    fi
+    
+    if [ -z "$HOST_CC" ] ; then
+        die "can't find a C compiler. you can use HOST_CC and HOST_CFLAGS environment variable"
+    else
+        echo "HOST_CC     = $HOST_CC"
+        echo "HOST_CFLAGS = $HOST_CFLAGS"
+    fi
+}
+
+# run in a subshell
+__check_if_c_compiler_works() {
+    TEMP_DIR_FOR_CHECKING=$(mktemp -d || return 1)
+    run cd "$TEMP_DIR_FOR_CHECKING"   || return 1
+    
+    echo '#include<string.h>\nint main() { return 0; }' > test.c
+
+    if exists command bat ; then
+        run bat --style=plain test.c
+    else
+        run cat test.c
+    fi
+    
+    if run "$HOST_CC $HOST_CFLAGS test.c" ; then
+        run ls
+        if exists file a.out.exe ; then
+            run "echo "host_os_exec_ext='.exe'" > $PROJECT_DIR/config.host"
+        else
+            run "echo 'host_os_exec_ext='       > $PROJECT_DIR/config.host"
+        fi
+    else
+        return 1
+    fi
+}
