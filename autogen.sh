@@ -488,6 +488,31 @@ command_version_match() {
     version_match "$(version_of_command "$1")" "$2" "$3"
 }
 
+get_pkg_add_package_name_by_command_name() {
+    case $1 in
+      cc|gcc) echo 'gcc' ;;
+        make) echo 'gmake' ;;
+       gmake) echo 'gmake' ;;
+         gm4) echo 'm4'    ;;
+        perl) echo 'perl5' ;;
+       gperf) echo 'gperf' ;;
+        gsed) echo 'gnu-sed'  ;;
+     objcopy) echo 'binutils' ;;
+      protoc) echo 'protobuf' ;;
+      ps2pdf) echo "ghostscript" ;;
+    libtool|libtoolize|glibtool|glibtoolize)
+              echo "libtool" ;;
+    autoreconf|autoconf)
+              echo "autoconf-2.69p3" ;;
+    automake|autoheader)
+              echo "automake-1.16.2" ;;
+    autopoint) echo "gettext" ;;
+    pkg-config) 
+              echo "pkgconf" ;;
+        *) echo "$1"
+    esac
+}
+
 get_pkgin_package_name_by_command_name() {
     case $1 in
       cc|gcc) echo 'gcc' ;;
@@ -1023,6 +1048,14 @@ EOF
     echo "NATIVE_OS_NAME  = $NATIVE_OS_NAME"
     echo "NATIVE_OS_VERS  = $NATIVE_OS_VERS"
     echo "NATIVE_OS_ARCH  = $NATIVE_OS_ARCH"
+
+    if [ "$NATIVE_OS_TYPE" = 'openbsd' ] ; then
+        export AUTOCONF_VERSION='2.69'
+        export AUTOMAKE_VERSION='1.16'
+        echo
+        echo "export AUTOCONF_VERSION=$AUTOCONF_VERSION"
+        echo "export AUTOMAKE_VERSION=$AUTOMAKE_VERSION"
+    fi
 
     step "show current machine os effective user info"
     id | tr ' ' '\n' | head -n 2
