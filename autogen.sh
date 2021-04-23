@@ -220,6 +220,7 @@ __get_os_arch_from_arch() {
 
 os() {
     if [ $# -eq 0 ] ; then
+        printf "current-machine-os-kind : %s\n" "$(os kind)"
         printf "current-machine-os-type : %s\n" "$(os type)"
         printf "current-machine-os-name : %s\n" "$(os name)"
         printf "current-machine-os-vers : %s\n" "$(os version)"
@@ -230,6 +231,7 @@ os() {
                 cat <<'EOF'
 os -h | --help
 os -V | --version
+os kind
 os type
 os arch
 os name
@@ -239,17 +241,27 @@ EOF
             -V|--version)
                 printf "%s\n" '2021.03.28.23'
                 ;;
+            kind)
+                case $(uname | tr A-Z a-z) in
+                    msys*)    echo "windows" ;;
+                    mingw32*) echo "windows" ;;
+                    mingw64*) echo "windows" ;;
+                    cygwin*)  echo 'windows' ;;
+                    *)  uname | tr A-Z a-z
+                esac
+                ;;
+
             type)
                 case $(uname | tr A-Z a-z) in
-                    msys*)    echo "windows/msys"    ;;
-                    mingw32*) echo "windows/mingw32" ;;
-                    mingw64*) echo "windows/mingw64" ;;
-                    cygwin*)  echo 'windows/cygwin'  ;;
+                    msys*)    echo "msys"    ;;
+                    mingw32*) echo "mingw32" ;;
+                    mingw64*) echo "mingw64" ;;
+                    cygwin*)  echo 'cygwin'  ;;
                     *)  uname | tr A-Z a-z
                 esac
                 ;;
             name)
-                case $(os type) in
+                case $(os kind) in
                     freebsd) echo 'FreeBSD' ;;
                     openbsd) echo 'OpenBSD' ;;
                     netbsd)  echo 'NetBSD'  ;;
@@ -259,7 +271,7 @@ EOF
                         __get_os_name_from_etc_os_release ||
                         __get_os_name_from_lsb_release
                         ;;
-                    windows/*)
+                    windows)
                         systeminfo | grep 'OS Name:' | cut -d: -f2 | head -n 1 | sed 's/^[[:space:]]*//' ;;
                     *)  uname | tr A-Z a-z
                 esac
@@ -270,7 +282,7 @@ EOF
                 __get_os_arch_from_getprop
                 ;;
             version)
-                case $(os type) in
+                case $(os kind) in
                     freebsd) freebsd-version ;;
                     openbsd) uname -r ;;
                     netbsd)  uname -r ;;
@@ -280,7 +292,7 @@ EOF
                         __get_os_version_from_etc_os_release ||
                         __get_os_version_from_lsb_release
                         ;;
-                    windows/*)
+                    windows)
                         systeminfo | grep 'OS Version:' | cut -d: -f2 | head -n 1 | sed 's/^[[:space:]]*//' | cut -d ' ' -f1 ;;
                 esac
                 ;;
@@ -1039,6 +1051,7 @@ main() {
     unset PROJECT_NAME
     unset PROJECT_VERSION
 
+    unset NATIVE_OS_KIND
     unset NATIVE_OS_TYPE
     unset NATIVE_OS_NAME
     unset NATIVE_OS_VERS
@@ -1068,17 +1081,19 @@ EOF
     esac
 
     step "show current machine os info"
+    NATIVE_OS_KIND=$(os kind)
     NATIVE_OS_TYPE=$(os type)
     NATIVE_OS_NAME=$(os name)
     NATIVE_OS_VERS=$(os version)
     NATIVE_OS_ARCH=$(os arch)
+    echo "NATIVE_OS_KIND  = $NATIVE_OS_KIND"
     echo "NATIVE_OS_TYPE  = $NATIVE_OS_TYPE"
     echo "NATIVE_OS_NAME  = $NATIVE_OS_NAME"
     echo "NATIVE_OS_VERS  = $NATIVE_OS_VERS"
     echo "NATIVE_OS_ARCH  = $NATIVE_OS_ARCH"
 
     # https://www.openbsd.org/faq/ports/specialtopics.html
-    if [ "$NATIVE_OS_TYPE" = 'openbsd' ] ; then
+    if [ "$NATIVE_OS_KIND" = 'openbsd' ] ; then
         [ -z "$AUTOCONF_VERSION" ] || export AUTOCONF_VERSION='2.69'
         [ -z "$AUTOMAKE_VERSION" ] || export AUTOMAKE_VERSION='1.16'
         
@@ -1090,10 +1105,9 @@ EOF
         required command automake-$AUTOMAKE_VERSION
     fi
     
-    case $NATIVE_OS_TYPE in
-        windows/*) ;;
-        *) [ "$(whoami)" = root ] || sudo=sudo
-    esac
+    if [ "$NATIVE_OS_KIND" != 'windows' ] ; then
+        [ "$(whoami)" = root ] || sudo=sudo
+    fi
     
     step "show current machine os effective user info"
     id | tr ' ' '\n' | head -n 2
