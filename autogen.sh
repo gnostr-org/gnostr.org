@@ -861,13 +861,37 @@ __install_command_via_package_manager() {
 # pkg-config ge 0.18
 # python3    ge 3.5
 # make
-required_command_needs_installed() {
+__install_command_via_available_package_manager() {
+    if required_command_exists_and_version_matched $@ ; then
+        printf "command %-10s %-10s ${COLOR_GREEN}FOUND${COLOR_OFF} %-8s %s\n" "$1" "$2 $3" "$(version_of_command $1)" "$(command -v $1)"
+    else
+        if [ -z "$AVAILABLE_PACKAGE_MANAGER_LIST" ] ; then
+            AVAILABLE_PACKAGE_MANAGER_LIST=$(__available_package_manager_list)
+            if [ -z "$AVAILABLE_PACKAGE_MANAGER_LIST" ] ; then
+                warn "no package manager found."
+                return 1
+            else
+                echo "Found $(list_length $AVAILABLE_PACKAGE_MANAGER_LIST) package manager : ${COLOR_GREEN}$AVAILABLE_PACKAGE_MANAGER_LIST${COLOR_OFF}"
+            fi
+        fi
+        for pm in $AVAILABLE_PACKAGE_MANAGER_LIST
+        do
+            __install_command_via_package_manager "$pm" $@
+        done
+    fi
+}
+
+# examples:
+# pkg-config ge 0.18
+# python3    ge 3.5
+# make
+required_command_exists_and_version_matched() {
     if exists command "$1" ; then
         if [ $# -eq 3 ] ; then
-            ! command_version_match $@
-        else
-            return 1
+            command_version_match $@
         fi
+    else
+        return 1
     fi
 }
 
@@ -876,28 +900,31 @@ required_command_needs_installed() {
 # required command python3    ge 3.5
 # optional python3 libxml2    ge 2.8
 # optional python3 libxml2
-handle_required_item() {
+__check_required_item() {
     shift
     case $1 in
         command)
             shift
-            if required_command_needs_installed $@ ; then
-                if [ -z "$AVAILABLE_PACKAGE_MANAGER_LIST" ] ; then
-                    AVAILABLE_PACKAGE_MANAGER_LIST=$(__available_package_manager_list)
-                    if [ -z "$AVAILABLE_PACKAGE_MANAGER_LIST" ] ; then
-                        warn "no package manager found."
-                        return 1
-                    else
-                        echo "Found $(list_length $AVAILABLE_PACKAGE_MANAGER_LIST) package manager : ${COLOR_GREEN}$AVAILABLE_PACKAGE_MANAGER_LIST${COLOR_OFF}"
-                    fi
-                fi
-                for pm in $AVAILABLE_PACKAGE_MANAGER_LIST
-                do
-                    __install_command_via_package_manager "$pm" $@
-                done
-            else
-                printf "required command %-10s %-10s ${COLOR_GREEN}FOUND${COLOR_OFF} %-8s %s\n" "$1" "$2 $3" "$(version_of_command $1)" "$(command -v $1)"
-            fi
+            case $1 in
+                *:*)
+                    for item in $(echo "$1" | tr ':' ' ')
+                    do
+                        if required_command_exists_and_version_matched "$item" $2 $3 ; then
+                            eval "REQUIRED_ITEM_$REQUIRED_ITEM_INDEX=$item"
+                            printf "command %-10s %-10s ${COLOR_GREEN}FOUND${COLOR_OFF} %-8s %s\n" "$item" "$2 $3" "$(version_of_command $item)" "$(command -v $item)"
+                            return 0
+                        fi
+                    done
+                    for item in $(echo "$1" | tr ':' ' ')
+                    do
+                        if __install_command_via_available_package_manager "$item" $2 $3 ; then
+                            eval "REQUIRED_ITEM_$REQUIRED_ITEM_INDEX=$item"
+                            return 0
+                        fi
+                    done
+                    ;;
+                *)  __install_command_via_available_package_manager $@
+            esac
             ;;
         python|python3)
             shift
@@ -925,53 +952,37 @@ handle_required_item() {
     esac
 }
 
-__is_libtool_used() {
-    # https://www.gnu.org/software/libtool/manual/html_node/LT_005fINIT.html
-    grep 'LT_INIT\s*('     configure.ac ||
-    grep 'AC_PROG_LIBTOOL' configure.ac ||
-    grep 'AM_PROG_LIBTOOL' configure.ac
-}
-
-__decode_required_or_optional() {
-    echo "$@" | sed 's|/| |g'
-}
-
-__check_required() {
-    for item in $@
-    do
-        handle_required_item $(__decode_required_or_optional "$item")
-    done
-}
-
-__print_required_or_optional() {
-    shift
-    case $1 in
+# examples:
+#    $1      $2      $3       $4  $5
+# required command pkg-config ge 0.18
+# required command python3    ge 3.5
+# optional python3 libxml2    ge 2.8
+# optional python3 libxml2
+__print_required_or_optional_item() {
+    case $2 in
         command)
-            printf "%-7s %-11s %-10s %-10s %s\n" "$1" "$2" "$3 $4" "$(version_of_command $2)" "$(command -v $2)"
+            case $3 in
+                *:*)
+                    if [ "$1" = 'required' ] ; then
+                        REQUIRED_ITEM="$(eval echo \$REQUIRED_ITEM_$REQUIRED_ITEM_INDEX)"
+                        printf "%-7s %-11s %-10s %-10s %s\n" "$2" "$REQUIRED_ITEM" "$4 $5" "$(version_of_command $REQUIRED_ITEM)" "$(command -v $REQUIRED_ITEM)"
+                    else
+                        for item in $(echo "$3" | tr ':' ' ')
+                        do
+                            printf "%-7s %-11s %-10s %-10s %s\n" "$2" "$item" "$4 $5" "$(version_of_command $item)" "$(command -v $item)"
+                        done
+                    fi
+                    ;;
+                *)  printf "%-7s %-11s %-10s %-10s %s\n" "$2" "$3" "$4 $5" "$(version_of_command $3)" "$(command -v $3)"
+            esac
             ;;
         python)
-            printf "%-7s %-11s %-10s %-10s %s\n" "$1" "$2" "$3 $4" "$(version_of_python_module $2)" "$(location_of_python_module $2)"
+            printf "%-7s %-11s %-10s %-10s %s\n" "$2" "$3" "$4 $5" "$(version_of_python_module $3)" "$(location_of_python_module $3)"
             ;;
         perl)
-            printf "%-7s %-11s %-10s %-10s %s\n" "$1" "$2" "$3 $4" "" ""
+            printf "%-7s %-11s %-10s %-10s %s\n" "$2" "$3" "$4 $5" "" ""
             ;;
-        *)  die "$1: not support."
-    esac
-}
-
-__list__required_or_optional() {
-    printf "%-7s %-11s %-10s %-10s %s\n" TYPE NAME EXPECTED ACTUAL LOCATION
-    for item in $@
-    do
-        __print_required_or_optional $(__decode_required_or_optional "$item")
-    done
-}
-
-__encode_required_or_optional() {
-    case $2 in
-        command|python|python2|python3|perl)
-            echo "$(echo $@ | tr ' ' /)" ;;
-        *) die "$2 : not support" ;;
+        *)  die "$2: type not support."
     esac
 }
 
@@ -990,9 +1001,9 @@ __encode_required_or_optional() {
 required() {
     if [ $# -eq 2 ] || [ $# -eq 4 ] ; then
         if [ -z "$REQUIRED" ] ; then
-            REQUIRED="$(__encode_required_or_optional required $@)"
+            REQUIRED="$(printf "%s" "required $*" | base64)"
         else
-            REQUIRED="$REQUIRED $(__encode_required_or_optional required $@)"
+            REQUIRED="$REQUIRED $(printf "%s" "required $*" | base64)"
         fi
     else
         die "required $@ : required function accept 2 or 4 argument."
@@ -1014,9 +1025,9 @@ required() {
 optional() {
     if [ $# -eq 2 ] || [ $# -eq 4 ] ; then
         if [ -z "$OPTIONAL" ] ; then
-            OPTIONAL=$(__encode_required_or_optional optional $@)
+            OPTIONAL=$(printf "%s" "optional $*" | base64)
         else
-            OPTIONAL="$OPTIONAL $(__encode_required_or_optional optional $@)"
+            OPTIONAL="$OPTIONAL $(printf "%s" "optional $*" | base64)"
         fi
     else
         die "optional $@ : optional function accept 2 or 4 argument."
@@ -1038,6 +1049,14 @@ gen_config_post() {
     warn "do nothing, you can overide this function to do whatever you want."
 }
 
+__is_libtool_used() {
+    # https://www.gnu.org/software/libtool/manual/html_node/LT_005fINIT.html
+    grep 'LT_INIT\s*('     configure.ac ||
+    grep 'AC_PROG_LIBTOOL' configure.ac ||
+    grep 'AM_PROG_LIBTOOL' configure.ac
+}
+
+
 main() {
     unset DEBUG
 
@@ -1058,6 +1077,9 @@ main() {
     unset NATIVE_OS_ARCH
 
     unset AUTOCONF_VERSION_MREQUIRED
+
+    unset REQUIRED_ITEM_INDEX
+    unset OPTIONAL_ITEM_INDEX
 
     echo "${COLOR_GREEN}autogen.sh is a POSIX shell script to manage GNU Autotools(autoconf automake) and other softwares used by this project.${COLOR_OFF}"
 
@@ -1141,15 +1163,11 @@ EOF
         warn "autogen.rc not exist. skipped."
     fi
 
-    step "check required"
-    
     required command autoconf ge "$AUTOCONF_VERSION_MREQUIRED"
     required command automake
     required command m4
     required command perl
-    required command make
-    optional command gmake
-    optional command bmake
+    required command make:gmake:bmake
 
     __is_libtool_used && required command libtoolize
 
@@ -1158,20 +1176,41 @@ EOF
         echo "OPTIONAL=$OPTIONAL"
     fi
 
-    __check_required $REQUIRED
+
+    step "check required"
+    for item in $REQUIRED
+    do
+        REQUIRED_ITEM_INDEX=$(expr ${REQUIRED_ITEM_INDEX-0} + 1)
+        __check_required_item $(printf "%s" "$item" | base64 -d)
+    done
+    unset REQUIRED_ITEM_INDEX
+
 
     step "list required"
     if [ -z "$REQUIRED" ] ; then
         warn "no required."
     else
-        __list__required_or_optional $REQUIRED
+        printf "%-7s %-11s %-10s %-10s %s\n" TYPE NAME EXPECTED ACTUAL LOCATION
+        for item in $REQUIRED
+        do
+            REQUIRED_ITEM_INDEX=$(expr ${REQUIRED_ITEM_INDEX-0} + 1)
+            __print_required_or_optional_item $(printf "%s" "$item" | base64 -d)
+        done
+        unset REQUIRED_ITEM_INDEX
     fi
 
+
     step "list optional"
-    if [ -z "$REQUIRED" ] ; then
+    if [ -z "$OPTIONAL" ] ; then
         warn "no optional."
     else
-        __list__required_or_optional $OPTIONAL
+        printf "%-7s %-11s %-10s %-10s %s\n" TYPE NAME EXPECTED ACTUAL LOCATION
+        for item in $OPTIONAL
+        do
+            OPTIONAL_ITEM_INDEX=$(expr ${OPTIONAL_ITEM_INDEX-0} + 1)
+            __print_required_or_optional_item $(printf "%s" "$item" | base64 -d)
+        done
+        unset OPTIONAL_ITEM_INDEX
     fi
 
     gen_config_pre  || return 1
