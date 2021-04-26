@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 jobs:
-  freebsd-11:
+  test:
     runs-on: macos-10.15
 
     strategy:

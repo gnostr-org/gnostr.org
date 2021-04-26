@@ -101,6 +101,51 @@ sed_in_place() {
     fi
 }
 
+base64_encode() {
+    if [ $# -eq 0 ] ; then
+        if exists command base64 ; then
+            # https://superuser.com/questions/1225134/why-does-the-base64-of-a-string-contain-n
+            base64 | tr -d \\n
+        elif exists command b64encode ; then
+            b64encode qwe | sed -n 2p
+        else
+            die "please install GNU coreutils."
+        fi
+    else
+        if exists command base64 ; then
+            # https://superuser.com/questions/1225134/why-does-the-base64-of-a-string-contain-n
+            printf "%s" "$*" | base64 | tr -d \\n
+        elif exists command b64encode ; then
+            printf "%s" "$*" | b64encode qwe | sed -n 2p
+        else
+            die "please install GNU coreutils."
+        fi
+    fi
+}
+
+base64_decode() {
+    if [ $# -eq 0 ] ; then
+        if exists command base64 ; then
+            base64 -d
+        elif exists command b64encode ; then
+            b64decode qwe | sed -n 2p
+        else
+            die "please install GNU coreutils."
+        fi
+    else
+        if exists command base64 ; then
+            printf "%s" "$*" | base64 -d
+        elif exists command b64encode ; then
+            printf "%s" "$*" | b64decode qwe | sed -n 2p
+        else
+            die "please install GNU coreutils."
+        fi
+    fi
+}
+
+
+
+
 __get_os_name_from_uname_a() {
     if command -v uname > /dev/null ; then
         unset V
@@ -993,6 +1038,22 @@ __print_required_or_optional_item() {
     esac
 }
 
+__encode() {
+    if [ $# -eq 0 ] ; then
+        tr ' ' '|'
+    else
+        printf "%s" "$*" | tr ' ' '|'
+    fi
+}
+
+__decode() {
+    if [ $# -eq 0 ] ; then
+        tr '|' ' '
+    else
+        printf "%s" "$*" | tr '|' ' '
+    fi
+}
+
 # declare required command or python/perl module
 #
 # $1 type=command|python|python2|python3|perl
@@ -1008,10 +1069,9 @@ __print_required_or_optional_item() {
 required() {
     if [ $# -eq 2 ] || [ $# -eq 4 ] ; then
         if [ -z "$REQUIRED" ] ; then
-            # https://superuser.com/questions/1225134/why-does-the-base64-of-a-string-contain-n
-            REQUIRED="$(printf "%s" "required $*" | base64 | tr -d \\n)"
+            REQUIRED="$(__encode "required $*")"
         else
-            REQUIRED="$REQUIRED $(printf "%s" "required $*" | base64 | tr -d \\n)"
+            REQUIRED="$REQUIRED $(__encode "required $*")"
         fi
     else
         die "required $@ : required function accept 2 or 4 argument."
@@ -1033,10 +1093,9 @@ required() {
 optional() {
     if [ $# -eq 2 ] || [ $# -eq 4 ] ; then
         if [ -z "$OPTIONAL" ] ; then
-            # https://superuser.com/questions/1225134/why-does-the-base64-of-a-string-contain-n
-            OPTIONAL=$(printf "%s" "optional $*" | base64 | tr -d \\n)
+            OPTIONAL=$(__encode "optional $*")
         else
-            OPTIONAL="$OPTIONAL $(printf "%s" "optional $*" | base64 | tr -d \\n)"
+            OPTIONAL="$OPTIONAL $(__encode "optional $*")"
         fi
     else
         die "optional $@ : optional function accept 2 or 4 argument."
@@ -1190,7 +1249,7 @@ EOF
     for item in $REQUIRED
     do
         REQUIRED_ITEM_INDEX=$(expr ${REQUIRED_ITEM_INDEX-0} + 1)
-        __check_required_item $(printf "%s" "$item" | base64 -d)
+        __check_required_item $(__decode "$item")
     done
     unset REQUIRED_ITEM_INDEX
 
@@ -1203,7 +1262,7 @@ EOF
         for item in $REQUIRED
         do
             REQUIRED_ITEM_INDEX=$(expr ${REQUIRED_ITEM_INDEX-0} + 1)
-            __print_required_or_optional_item $(printf "%s" "$item" | base64 -d)
+            __print_required_or_optional_item $(__decode "$item")
         done
         unset REQUIRED_ITEM_INDEX
     fi
@@ -1217,7 +1276,7 @@ EOF
         for item in $OPTIONAL
         do
             OPTIONAL_ITEM_INDEX=$(expr ${OPTIONAL_ITEM_INDEX-0} + 1)
-            __print_required_or_optional_item $(printf "%s" "$item" | base64 -d)
+            __print_required_or_optional_item $(__decode "$item")
         done
         unset OPTIONAL_ITEM_INDEX
     fi
