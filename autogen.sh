@@ -829,7 +829,14 @@ __install_package_via_package_manager() {
         brew)    run brew install "$2" ;;
         apt)     run $sudo apt -y install "$2" ;;
         apt-get) run $sudo apt-get -y install "$2" ;;
-        dnf)     run $sudo dnf -y install "$2" ;;
+        dnf)
+            # Error: GPG check FAILED
+            if [ "$NATIVE_OS_NAME" = 'fedora' ] && [ "$NATIVE_OS_VERS" = 'rawhide' ] ; then
+                 run $sudo dnf -y install "$2" --nogpgcheck
+            else
+                 run $sudo dnf -y install "$2"
+            fi
+            ;;
         yum)     run $sudo yum -y install "$2" ;;
         zypper)  run $sudo zypper install -y "$2" ;;
         apk)     run $sudo apk add "$2" ;;
