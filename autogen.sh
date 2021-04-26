@@ -1001,9 +1001,10 @@ __print_required_or_optional_item() {
 required() {
     if [ $# -eq 2 ] || [ $# -eq 4 ] ; then
         if [ -z "$REQUIRED" ] ; then
-            REQUIRED="$(printf "%s" "required $*" | base64)"
+            # https://superuser.com/questions/1225134/why-does-the-base64-of-a-string-contain-n
+            REQUIRED="$(printf "%s" "required $*" | base64 | tr -d \\n)"
         else
-            REQUIRED="$REQUIRED $(printf "%s" "required $*" | base64)"
+            REQUIRED="$REQUIRED $(printf "%s" "required $*" | base64 | tr -d \\n)"
         fi
     else
         die "required $@ : required function accept 2 or 4 argument."
@@ -1025,9 +1026,10 @@ required() {
 optional() {
     if [ $# -eq 2 ] || [ $# -eq 4 ] ; then
         if [ -z "$OPTIONAL" ] ; then
-            OPTIONAL=$(printf "%s" "optional $*" | base64)
+            # https://superuser.com/questions/1225134/why-does-the-base64-of-a-string-contain-n
+            OPTIONAL=$(printf "%s" "optional $*" | base64 | tr -d \\n)
         else
-            OPTIONAL="$OPTIONAL $(printf "%s" "optional $*" | base64)"
+            OPTIONAL="$OPTIONAL $(printf "%s" "optional $*" | base64 | tr -d \\n)"
         fi
     else
         die "optional $@ : optional function accept 2 or 4 argument."
