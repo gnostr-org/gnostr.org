@@ -2,7 +2,7 @@
 
 required command cc
 required command pkg-config ge 0.18
-optional command python3    ge 3.5
+required command python3:python:python3.5:python3.6:python3.7:python3.8:python3.9 ge 3.5
 
 gen_config_pre() {
     step "gen config pre"
