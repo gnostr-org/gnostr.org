@@ -23,7 +23,7 @@ jobs:
       with:
         msystem: ${{ matrix.msystem }}
         update: true
-        install: git
+        install: git libiconv-devel
 
     - run: git config --global core.autocrlf input
       shell: bash

@@ -22,7 +22,7 @@ jobs:
         mem: 2048
         box: generic/netbsd${{ matrix.version }}
         run: |
-          run sudo pkgin -y install mozilla-rootcerts
+          run sudo pkgin -y install git mozilla-rootcerts
 
           run sudo mozilla-rootcerts install
 

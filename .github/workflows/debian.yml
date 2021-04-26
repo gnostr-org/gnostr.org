@@ -15,7 +15,7 @@ jobs:
       matrix:
         tag: ['8.11', '9.13', '10.7']
 
-    container: alpine:${{ matrix.tag }}
+    container: debian:${{ matrix.tag }}
 
     steps:
       - run: apt -y update
