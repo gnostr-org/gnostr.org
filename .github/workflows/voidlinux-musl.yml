@@ -13,8 +13,8 @@ jobs:
     container: voidlinux/voidlinux-musl:20201117RC01
 
     steps:
-      - run: xbps-install -u xbps
-      - run: xbps-install -Sy git file
+      - run: xbps-install -Syu xbps
+      - run: xbps-install -Sy  git file
 
       - uses: actions/checkout@v2
 
