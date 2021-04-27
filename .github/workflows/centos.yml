@@ -49,11 +49,11 @@ jobs:
           sed -i 's|http:|https:|g'             /etc/yum.repos.d/CentOS-Base.repo
 
       - run: yum -y update
-      - run: yum -y install file curl xz libcurl-devel expat-devel gettext gettext-devel openssl-devel zlib-devel perl-ExtUtils-MakeMaker
+      - run: yum -y install file gcc make curl xz libcurl-devel expat-devel gettext gettext-devel openssl-devel zlib-devel perl-ExtUtils-MakeMaker
 
       - run: |
-          curl -LO https://mirrors.edge.kernel.org/pub/software/scm/git/git-2.30.0.tar.gz
-          tar vxf git-2.30.0.tar.gz
+          curl -LO https://mirrors.edge.kernel.org/pub/software/scm/git/git-2.30.0.tar.xz
+          tar xf git-2.30.0.tar.xz
           cd git-2.30.0
           ./configure
           make
