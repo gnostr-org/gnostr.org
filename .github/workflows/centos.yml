@@ -49,10 +49,10 @@ jobs:
           sed -i 's|http:|https:|g'             /etc/yum.repos.d/CentOS-Base.repo
 
       - run: yum -y update
-      - run: yum -y install curl file
+      - run: yum -y install curl xz file
 
-      - run: curl -LO https://raw.githubusercontent.com/leleliu008/auto/master/git/git-2.30.0-centos-6.10.tar.gz
-      - run: tar vxf git-2.30.0-centos-6.10.tar.gz
+      - run: curl -LO https://raw.githubusercontent.com/leleliu008/auto/master/git/git-2.30.0-centos-6.10.tar.xz
+      - run: tar vxf git-2.30.0-centos-6.10.tar.xz
       - run: ln -sf $(pwd)/git-2.30.0/bin/git /usr/bin/git
       - run: git --version
 
