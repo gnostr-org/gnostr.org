@@ -18,11 +18,18 @@ jobs:
     container: centos:${{ matrix.tag }}
 
     steps:
-      - run: dnf -y update && dnf -y install git file
-        if:  ${{ matrix.tag == '8.3.2011' }}
+      - run: |
+          sed -i 's|#baseurl=|baseurl=|g'       /etc/yum.repos.d/CentOS-Base.repo
+          sed -i 's|mirrorlist=|#mirrorlist=|g' /etc/yum.repos.d/CentOS-Base.repo
+          sed -i 's|mirror|vault|g'             /etc/yum.repos.d/CentOS-Base.repo
+          sed -i 's|http:|https:|g'             /etc/yum.repos.d/CentOS-Base.repo
+        if:  ${{ matrix.tag == '6.10' }}
 
       - run: yum -y update && yum -y install git file
         if:  ${{ matrix.tag == '6.10' || matrix.tag == '7.5.1804' }}
+
+      - run: dnf -y update && dnf -y install git file
+        if:  ${{ matrix.tag == '8.3.2011' }}
 
       - uses: actions/checkout@v2
 

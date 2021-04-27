@@ -13,8 +13,8 @@ jobs:
     container: jonathonf/manjaro
 
     steps:
-      - run: pacman -Syy --noconfirm
-      - run: pacman -S   --noconfirm git file tar
+      - run: pacman -Syyuu --noconfirm
+      - run: pacman -S     --noconfirm git file
 
       - uses: actions/checkout@v2
 

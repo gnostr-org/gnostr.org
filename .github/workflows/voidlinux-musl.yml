@@ -10,7 +10,7 @@ jobs:
   test:
     runs-on: ubuntu-20.04
     
-    container: voidlinux/voidlinux-musl
+    container: voidlinux/voidlinux-musl:20201117RC01
 
     steps:
       - run: xbps-install -Sy git file
