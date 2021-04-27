@@ -54,7 +54,7 @@ jobs:
       - run: git init
       - run: git remote add origin https://github.com/${{github.repository}}
       - run: git config --global gc.auto 0
-      - run: git fetch --no-tags --prune --progress --no-recurse-submodules --depth=1 origin +${{github.sha}}:refs/remotes/origin/master
+      - run: git fetch --prune --progress --depth=1 origin +${{github.sha}}:refs/remotes/origin/master
       - run: git checkout --progress --force -B master refs/remotes/origin/master
       - run: ls
 
