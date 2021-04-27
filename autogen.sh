@@ -103,51 +103,6 @@ sed_in_place() {
     fi
 }
 
-base64_encode() {
-    if [ $# -eq 0 ] ; then
-        if exists command base64 ; then
-            # https://superuser.com/questions/1225134/why-does-the-base64-of-a-string-contain-n
-            base64 | tr -d \\n
-        elif exists command b64encode ; then
-            b64encode qwe | sed -n 2p
-        else
-            die "please install GNU coreutils."
-        fi
-    else
-        if exists command base64 ; then
-            # https://superuser.com/questions/1225134/why-does-the-base64-of-a-string-contain-n
-            printf "%s" "$*" | base64 | tr -d \\n
-        elif exists command b64encode ; then
-            printf "%s" "$*" | b64encode qwe | sed -n 2p
-        else
-            die "please install GNU coreutils."
-        fi
-    fi
-}
-
-base64_decode() {
-    if [ $# -eq 0 ] ; then
-        if exists command base64 ; then
-            base64 -d
-        elif exists command b64encode ; then
-            b64decode qwe | sed -n 2p
-        else
-            die "please install GNU coreutils."
-        fi
-    else
-        if exists command base64 ; then
-            printf "%s" "$*" | base64 -d
-        elif exists command b64encode ; then
-            printf "%s" "$*" | b64decode qwe | sed -n 2p
-        else
-            die "please install GNU coreutils."
-        fi
-    fi
-}
-
-
-
-
 __get_os_name_from_uname_a() {
     if command -v uname > /dev/null ; then
         unset V
@@ -1269,7 +1224,7 @@ EOF
     
     # https://www.gnu.org/software/autoconf/manual/autoconf-2.69/html_node/Versioning.html
     AUTOCONF_VERSION_MREQUIRED=$(grep 'AC_PREREQ\s*(\[.*\])\s*$' configure.ac | sed 's/AC_PREREQ\s*(\[\(.*\)\])/\1/')
-     
+
     step "load autogen.rc"
     if exists file "$RC_FILE" ; then
         if . "$RC_FILE" ; then
