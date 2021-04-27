@@ -19,7 +19,7 @@ gen_config_post() {
     for input in optlib/*.ctags
     do
         output="${input%.ctags}.c"
-        printf "${COLOR_GREEN}./misc/optlib2c %-25s > %s${COLOR_OFF}\n" "$input" "$output"
+        printf "${COLOR_GREEN}./misc/optlib2c %-27s > %s${COLOR_OFF}\n" "$input" "$output"
         ./misc/optlib2c "$input" > "$output" || return 1
     done
     

@@ -13,8 +13,16 @@ jobs:
     container: jonathonf/manjaro
 
     steps:
-      - run: pacman -Syyuu --noconfirm
-      - run: pacman -S     --noconfirm git file sed
+      - run: |
+          # https://www.reddit.com/r/linuxquestions/comments/i83xrp/arch_upgrade_keyring_issue
+          pacman -Syyuu --noconfirm || {
+            rm -rf /etc/pacman.d/gnupg/
+            rm -rf /root/.gnupg/
+            gpg --refresh-keys
+            pacman-key --init && pacman-key --populate
+            pacman-key --refresh-keys
+          }
+      - run: pacman -S --noconfirm git file sed
 
       - uses: actions/checkout@v2
 
