@@ -1177,14 +1177,17 @@ main() {
     unset REQUIRED_ITEM_INDEX
     unset OPTIONAL_ITEM_INDEX
 
+    unset RC_FILE
+
     echo "${COLOR_GREEN}autogen.sh is a POSIX shell script to manage GNU Autotools(autoconf automake) and other softwares used by this project.${COLOR_OFF}"
 
     case $1 in
+        '') ;;
         -h|--help)
             cat <<EOF
 ./autogen.sh -h | --help
 ./autogen.sh -V | --version
-./autogen.sh [ -x | -d ]
+./autogen.sh [ --rc-file=FILE | -x | -d ]
 EOF
             return 0
             ;;
@@ -1192,11 +1195,30 @@ EOF
             echo "$PROJECT_VERSION"
             return 0
             ;;
-        -x) set -x ;;
-        -d) DEBUG=true ;;
-        '') ;;
-        *)  die "$1: not support action."
+        -x|-d|--rc-file=*)
+            for item in $@
+            do
+                case $item in
+                    -x) set -x ;;
+                    -d) DEBUG=true ;;
+                    --rc-file=*)
+                        RC_FILE=$(echo "$item" | cut -d= -f2)
+                        if [ -z "$RC_FILE" ] ; then
+                            die "--rc-file=FILE FILE must not empty."
+                        else
+                            if ! exists file "$RC_FILE" ; then
+                                die "$item: file not exists."
+                            fi
+                        fi
+                        ;;
+                    *)  die "$item: not support argument."
+                esac
+            done
+            ;;
+        *)  die "$1: not support argument."
     esac
+
+    [ -z "$RC_FILE" ] && RC_FILE=autogen.rc
 
     step "show current machine os info"
     NATIVE_OS_KIND=$(os kind)
@@ -1249,11 +1271,11 @@ EOF
     AUTOCONF_VERSION_MREQUIRED=$(grep 'AC_PREREQ\s*(\[.*\])\s*$' configure.ac | sed 's/AC_PREREQ\s*(\[\(.*\)\])/\1/')
      
     step "load autogen.rc"
-    if exists file autogen.rc ; then
-        if . ./autogen.rc ; then
-            success "autogen.rc loaded successfully."
+    if exists file "$RC_FILE" ; then
+        if . "$RC_FILE" ; then
+            success "$RC_FILE loaded successfully."
         else
-            die "autogen.rc load failed."
+            die "$RC_FILE load failed."
         fi
     else
         warn "autogen.rc not exist. skipped."
@@ -1268,6 +1290,7 @@ EOF
     __is_libtool_used && required command libtoolize
 
     if [ "$DEBUG" = 'true' ] ; then
+        echo
         echo "REQUIRED=$REQUIRED"
         echo "OPTIONAL=$OPTIONAL"
     fi
