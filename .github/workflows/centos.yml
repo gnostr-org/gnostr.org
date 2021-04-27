@@ -54,8 +54,14 @@ jobs:
       - run: curl -LO https://raw.githubusercontent.com/leleliu008/auto/master/git/git-2.30.0-centos-6.10.tar.gz
       - run: tar vxf git-2.30.0-centos-6.10.tar.gz
       - run: ln -sf $(pwd)/git-2.30.0/bin/git /usr/bin/git
+      - run: git --version
 
-      - uses: actions/checkout@v2
+      - run: git init
+      - run: git remote add origin https://github.com/${{github.repository}}
+      - run: git config --local gc.auto 0
+      - run: git -c protocol.version=2 fetch --no-tags --prune --progress --no-recurse-submodules --depth=1 origin +${{github.sha}}:refs/remotes/origin/master
+      - run: git checkout --progress --force -B master refs/remotes/origin/master
+      - run: ls
 
       - run: git clone https://github.com/universal-ctags/ctags
       - run: cp autogen.sh ctags
