@@ -49,11 +49,16 @@ jobs:
           sed -i 's|http:|https:|g'             /etc/yum.repos.d/CentOS-Base.repo
 
       - run: yum -y update
-      - run: yum -y install curl xz file
+      - run: yum -y install file curl xz libcurl-devel expat-devel gettext gettext-devel openssl-devel zlib-devel perl-ExtUtils-MakeMaker
 
-      - run: curl -LO https://raw.githubusercontent.com/leleliu008/auto/master/git/git-2.30.0-centos-6.10.tar.xz
-      - run: tar vxf git-2.30.0-centos-6.10.tar.xz
-      - run: ln -sf $(pwd)/git-2.30.0-centos-6.10/bin/git /usr/bin/git
+      - run: |
+          curl -LO https://mirrors.edge.kernel.org/pub/software/scm/git/git-2.30.0.tar.gz
+          tar vxf git-2.30.0.tar.gz
+          cd git-2.30.0
+          ./configure
+          make
+          make install
+
       - run: git --version
 
       - run: git init
