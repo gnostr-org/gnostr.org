@@ -1218,7 +1218,7 @@ EOF
         *)  die "$1: not support argument."
     esac
 
-    [ -z "$RC_FILE" ] && RC_FILE=autogen.rc
+    [ -z "$RC_FILE" ] && RC_FILE='./autogen.rc'
 
     step "show current machine os info"
     NATIVE_OS_KIND=$(os kind)
