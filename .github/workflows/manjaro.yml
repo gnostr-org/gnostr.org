@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - run: pacman -Syy --noconfirm
-      - run: pacman -S   --noconfirm git file
+      - run: pacman -S   --noconfirm git file tar
 
       - uses: actions/checkout@v2
 

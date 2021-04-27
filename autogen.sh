@@ -674,7 +674,7 @@ get_emerge_package_name_by_command_name() {
     esac
 }
 
-get_pacman_package_name_by_command_name() {
+__get_pacman_package_name_by_command_name() {
     case $1 in
       cc|gcc) echo 'gcc' ;;
          gm4) echo 'm4'    ;;
@@ -693,6 +693,30 @@ get_pacman_package_name_by_command_name() {
     pkg-config) 
               echo "pkgconf" ;;
         *) echo "$1"
+    esac
+}
+
+__mingw_w64_i686() {
+    if pacman -S -i "mingw-w64-i686-$1" > /dev/null 2>&1 ; then
+        echo "mingw-w64-i686-$1"
+    else
+        echo "$1"
+    fi
+}
+
+__mingw_w64_x86_64() {
+    if pacman -S -i "mingw-w64-x86_64-$1" > /dev/null 2>&1 ; then
+        echo "mingw-w64-x86_64-$1"
+    else
+        echo "$1"
+    fi
+}
+
+get_pacman_package_name_by_command_name() {
+    case $NATIVE_OS_TYPE in
+        mingw32) __mingw_w64_i686   $(__get_pacman_package_name_by_command_name "$1") ;;
+        mingw64) __mingw_w64_x86_64 $(__get_pacman_package_name_by_command_name "$1") ;;
+        *) __get_pacman_package_name_by_command_name "$1"
     esac
 }
 
