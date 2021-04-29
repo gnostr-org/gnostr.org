@@ -13,7 +13,7 @@ jobs:
     container: madhacking/gentoo
 
     steps:
-      - run: emerge git file
+      - run: emerge dev-vcs/git file
 
       - uses: actions/checkout@v2
 
