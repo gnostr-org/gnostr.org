@@ -624,10 +624,15 @@ version_minor_of_version() {
 version_sort() {
     # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/sort.html
     # https://man.netbsd.org/NetBSD-8.1/i386/sort.1
-    case $(uname) in
-        NetBSD) echo "$@" | tr ' ' '\n' | sort -t. -n -k1,1 -k2,2 -k3,3 -k4,4 ;;
-             *) echo "$@" | tr ' ' '\n' | sort -V ;;
-    esac
+    #
+    # sort: unrecognized option: V
+    # BusyBox v1.29.3 (2019-01-24 07:45:07 UTC) multi-call binary.
+    # Usage: sort [-nrugMcszbdfiokt] [-o FILE] [-k start[.offset][opts][,end[.offset][opts]] [-t CHAR] [FILE]...
+    if  echo | (sort -V 2> /dev/null) ; then
+        echo "$@" | tr ' ' '\n' | sort -V
+    else
+        echo "$@" | tr ' ' '\n' | sort -t. -n -k1,1 -k2,2 -k3,3 -k4,4
+    fi
 }
 
 # check if match the condition
@@ -1302,7 +1307,6 @@ __is_libtool_used() {
 
 main() {
     echo "${COLOR_GREEN}autogen.sh is a POSIX shell script to manage GNU Autotools(autoconf automake) and other softwares used by this project.${COLOR_OFF}"
-    echo
 
     case $1 in
         -h|--help)
