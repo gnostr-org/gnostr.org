@@ -1110,6 +1110,11 @@ __install_command_via_available_package_manager() {
 # make
 required_command_exists_and_version_matched() {
     if exists command "$1" ; then
+        if [ "$NATIVE_OS_TYPE" = 'cygwin' ] ; then
+            case $(command -v "$1") in
+                /cygdrive/*) return 1
+            esac
+        fi
         if [ $# -eq 3 ] ; then
             command_version_match $@
         fi
