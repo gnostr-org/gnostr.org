@@ -410,6 +410,7 @@ os() {
         printf "current-machine-os-name : %s\n" "$(os name)"
         printf "current-machine-os-vers : %s\n" "$(os version)"
         printf "current-machine-os-arch : %s\n" "$(os arch)"
+        printf "current-machine-os-libc : %s\n" "$(os libc)"
     elif [ $# -eq 1 ] ; then
         case $1 in
             -h|--help)
@@ -419,13 +420,12 @@ os -V | --version
 os kind
 os type
 os arch
+os libc
 os name
 os version
 EOF
                 ;;
-            -V|--version)
-                printf "%s\n" '2021.03.28.23'
-                ;;
+            -V|--version) echo '2021.03.28.23' ;;
             kind)
                 case $(uname | tr A-Z a-z) in
                     msys*)    echo "windows" ;;
@@ -465,6 +465,29 @@ EOF
                 __get_os_arch_from_uname ||
                 __get_os_arch_from_arch  ||
                 __get_os_arch_from_getprop
+                ;;
+            libc)
+                case $(os kind) in
+                    linux)
+                        # https://pubs.opengroup.org/onlinepubs/7908799/xcu/getconf.html
+                        if command -v getconf > /dev/null ; then
+                            if getconf GNU_LIBC_VERSION > /dev/null 2>&1 ; then
+                                echo glibc
+                                return 0
+                            fi
+                        fi
+                        if command -v ldd > /dev/null ; then
+                            if ldd --version 2>&1 | head -n 1 | grep -q GLIBC ; then
+                                echo glibc
+                                return 0
+                            fi
+                            if ldd --version 2>&1 | head -n 1 | grep -q musl ; then
+                                echo musl
+                                return 0
+                            fi
+                        fi
+                        return 1
+                esac
                 ;;
             version)
                 case $(os kind) in
@@ -542,26 +565,12 @@ version_of_command() {
         xmlto) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f3 ;;
       xmllint) ;;
      xsltproc) ;;
-         gzip)
-            unset TEMP_FILE
-            TEMP_FILE=$(mktemp)
-            "$1" --version > $TEMP_FILE 2>&1
-            cat $TEMP_FILE | head -n 1 | awk '{print($NF)}'
-            rm $TEMP_FILE
-            unset TEMP_FILE
-            ;;
+         gzip) "$1" --version 2>&1 | head -n 1 | awk '{print($NF)}' ;;
          lzip) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f2 ;;
            xz) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f4 ;;
           zip) "$1" --version 2> /dev/null | sed -n '2p' | cut -d ' ' -f4 ;;
         unzip) "$1" -v        2> /dev/null | head -n 1 | cut -d ' ' -f2 ;;
-        bzip2)
-            unset TEMP_FILE
-            TEMP_FILE=$(mktemp)
-            "$1" --help 2> $TEMP_FILE
-            cat $TEMP_FILE | head -n 1 | cut -d ' ' -f8 | cut -d ',' -f1
-            rm $TEMP_FILE
-            unset TEMP_FILE
-            ;;
+        bzip2) "$1" --help 2>&1 | head -n 1 | cut -d ' ' -f8 | cut -d ',' -f1 ;;
           tar)
             VERSION_MSG=$("$1" --version 2> /dev/null | head -n 1)
             case $VERSION_MSG in
@@ -578,13 +587,7 @@ version_of_command() {
          ruby) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f2 ;;
          perl) "$1" -v | sed -n '2p' | sed 's/.*v\([0-9]\.[0-9][0-9]\.[0-9]\).*/\1/' ;;
     python|python2|python3)
-            unset TEMP_FILE
-            TEMP_FILE=$(mktemp)
-            "$1" --version > $TEMP_FILE 2>&1
-            cat $TEMP_FILE | head -n 1 | cut -d ' ' -f2
-            rm $TEMP_FILE
-            unset TEMP_FILE
-            ;;
+               "$1" --version 2>&1 | head -n 1 | cut -d ' ' -f2 ;;
          pip)  "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f2 ;;
          pip3) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f2 ;;
          node) "$1" --version 2> /dev/null | head -n 1 | cut -d 'v' -f2 ;;
@@ -1095,7 +1098,7 @@ __install_command_via_available_package_manager() {
         fi
         for pm in $AVAILABLE_PACKAGE_MANAGER_LIST
         do
-            __install_command_via_package_manager "$pm" $@
+            __install_command_via_package_manager "$pm" $@ && return 0
         done
     fi
 }
@@ -1124,7 +1127,7 @@ required_command_exists_and_version_matched() {
 # required command python3    ge 3.5
 # optional python3 libxml2    ge 2.8
 # optional python3 libxml2
-__check_required_item() {
+__handle_required_item() {
     shift
     case $1 in
         command)
@@ -1331,6 +1334,7 @@ EOF
     unset NATIVE_OS_NAME
     unset NATIVE_OS_VERS
     unset NATIVE_OS_ARCH
+    unset NATIVE_OS_LIBC
 
     unset AUTOCONF_VERSION_MREQUIRED
 
@@ -1372,11 +1376,13 @@ EOF
     NATIVE_OS_NAME=$(os name)
     NATIVE_OS_VERS=$(os version)
     NATIVE_OS_ARCH=$(os arch)
+    NATIVE_OS_LIBC=$(os libc)
     echo "NATIVE_OS_KIND  = $NATIVE_OS_KIND"
     echo "NATIVE_OS_TYPE  = $NATIVE_OS_TYPE"
     echo "NATIVE_OS_NAME  = $NATIVE_OS_NAME"
     echo "NATIVE_OS_VERS  = $NATIVE_OS_VERS"
     echo "NATIVE_OS_ARCH  = $NATIVE_OS_ARCH"
+    echo "NATIVE_OS_LIBC  = $NATIVE_OS_LIBC"
 
     # https://www.openbsd.org/faq/ports/specialtopics.html
     if [ "$NATIVE_OS_KIND" = 'openbsd' ] ; then
@@ -1423,7 +1429,7 @@ EOF
             die "$RC_FILE load failed."
         fi
     else
-        warn "autogen.rc not exist. skipped."
+        warn "$RC_FILE not exist. skipped."
     fi
 
     required command autoconf ge "$AUTOCONF_VERSION_MREQUIRED"
@@ -1434,18 +1440,16 @@ EOF
 
     __is_libtool_used && required command libtoolize
 
+    step "handle required"
     if [ "$DEBUG" = 'true' ] ; then
         echo
         echo "REQUIRED=$REQUIRED"
         echo "OPTIONAL=$OPTIONAL"
     fi
-
-
-    step "check required"
     for item in $REQUIRED
     do
         REQUIRED_ITEM_INDEX=$(expr ${REQUIRED_ITEM_INDEX-0} + 1)
-        __check_required_item $(__decode "$item")
+        __handle_required_item $(__decode "$item")
     done
     unset REQUIRED_ITEM_INDEX
 
