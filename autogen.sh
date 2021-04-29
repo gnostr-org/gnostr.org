@@ -28,7 +28,7 @@ success() {
 }
 
 warn() {
-    print "${COLOR_YELLOW}🔥 $*\n${COLOR_OFF}"
+    print "${COLOR_YELLOW}🔥  $*\n${COLOR_OFF}"
 }
 
 error() {
@@ -71,6 +71,11 @@ step() {
     echo "${COLOR_PURPLE}=>> STEP ${STEP_NUM} : ${STEP_MESSAGE} ${COLOR_OFF}"
 }
 
+title() {
+    echo
+    echo "${COLOR_PURPLE}=>> $@${COLOR_OFF}"
+}
+
 run() {
     info "$*"
     eval "$*"
@@ -100,6 +105,185 @@ sed_in_place() {
     else
         die "please install sed utility."
     fi
+}
+
+
+getvalue() {
+    if [ $# -eq 0 ] ; then
+        cut -d= -f2
+    else
+        echo "$1" | cut -d= -f2
+    fi
+}
+
+trim() {
+    if [ $# -eq 0 ] ; then
+        sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//'
+    else
+        if [ -n "$*" ] ; then
+            echo "$*" | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//'
+        fi
+    fi
+}
+
+__get_available_fetch_tool() {
+    for item in curl wget http lynx aria2c axel
+    do
+        if exists command "$item" ; then
+            echo "$item"
+            return 0
+        fi
+    done
+    return 1
+}
+
+__fetch_via_git() {
+    if [ -d "$FETCH_OUTPUT_PATH" ] ; then
+        if      git -C "$FETCH_OUTPUT_PATH" rev-parse 2> /dev/null ; then
+            run git -C "$FETCH_OUTPUT_PATH" pull &&
+            run git -C "$FETCH_OUTPUT_PATH" submodule update --recursive
+        else
+            run rm -rf "$FETCH_OUTPUT_PATH" &&
+            run git -C "$FETCH_OUTPUT_DIR" clone --recursive "$FETCH_URL" "$FETCH_OUTPUT_NAME"
+        fi
+    else
+        run git -C "$FETCH_OUTPUT_DIR" clone --recursive "$FETCH_URL" "$FETCH_OUTPUT_NAME"
+    fi
+}
+
+__fetch_archive_via_tools() {
+    if [ -f "$FETCH_OUTPUT_PATH" ] ; then
+        if [ -n "$FETCH_SHA256" ] ; then
+            if is_sha256sum_match "$FETCH_OUTPUT_PATH" "$FETCH_SHA256" ; then
+                success "$FETCH_OUTPUT_PATH eval."
+                return 0
+            fi
+        fi
+        rm -f "$FETCH_OUTPUT_PATH"
+    fi
+
+    AVAILABLE_FETCH_TOOL=$(__get_available_fetch_tool)
+
+    if [ -z "$AVAILABLE_FETCH_TOOL" ] ; then
+        warn "no fetch tools found, install curl via package manager"
+        __install_command_via_available_package_manager curl
+        if exists command curl ; then
+            AVAILABLE_FETCH_TOOL=curl
+        else
+            return 1
+        fi
+    fi
+
+    case $AVAILABLE_FETCH_TOOL in
+        curl)  run curl --fail --retry 20 --retry-delay 30 --location -o "$FETCH_OUTPUT_PATH" "\"$FETCH_URL\"" ;;
+        wget)  run wget --timeout=60 -O "$FETCH_OUTPUT_PATH" "\"$FETCH_URL\"" ;;
+        http)  run http --timeout=60 -o "$FETCH_OUTPUT_PATH" "\"$FETCH_URL\"" ;;
+        lynx)  run lynx -source "$FETCH_URL" > "\"$FETCH_OUTPUT_PATH\"" ;;
+        aria2c)run aria2c -d "$FETCH_OUTPUT_DIR" -o "$FETCH_OUTPUT_NAME" "\"$FETCH_URL\"" ;;
+        axel)  run axel -o "$FETCH_OUTPUT_PATH" "\"$FETCH_URL\"" ;;
+    esac
+
+    if [ $? -eq 0 ] ; then
+        success "Fetched to $FETCH_OUTPUT_PATH success."
+    else
+        die "Fetched to $FETCH_OUTPUT_PATH failed."
+    fi
+
+    if [ -n "$FETCH_SHA256" ] ; then
+        die_if_sha256sum_mismatch "$FETCH_OUTPUT_PATH" "$FETCH_SHA256"
+    fi
+}
+
+# fetch <URL> [--sha256=SHA256] <--output-path=PATH>
+# fetch <URL> [--sha256=SHA256] <--output-dir=DIR> <--output-name=NAME>
+# fetch <URL> [--sha256=SHA256] <--output-dir=DIR> [--output-name=NAME]
+# fetch <URL> [--sha256=SHA256] [--output-dir=DIR] <--output-name=NAME>
+fetch() {
+    unset FETCH_URL
+    unset FETCH_SHA256
+    unset FETCH_OUTPUT_DIR
+    unset FETCH_OUTPUT_NAME
+    unset FETCH_OUTPUT_PATH
+
+    if [ -z "$1" ] ; then
+        die "please specify a fetch url."
+    else
+        FETCH_URL="$1"
+    fi
+
+    shift
+
+    while [ -n "$1" ]
+    do
+        case $1 in
+            --sha256=*)
+                FETCH_SHA256=$(getvalue "$1")
+                ;;
+            --output-dir=*)
+                FETCH_OUTPUT_DIR=$(getvalue "$1")
+                if [ -z "$FETCH_OUTPUT_DIR" ] ; then
+                    die "--output-dir argument's value must be not empty."
+                fi
+                ;;
+            --output-name=*)
+                FETCH_OUTPUT_NAME=$(getvalue "$1")
+                if [ -z "$FETCH_OUTPUT_NAME" ] ; then
+                    die "--output-name argument's value must be not empty."
+                fi
+                ;;
+            --output-path=*)
+                FETCH_OUTPUT_PATH=$(getvalue "$1")
+                if [ -z "$FETCH_OUTPUT_PATH" ] ; then
+                    die "--output-path argument's value must be not empty."
+                fi
+        esac
+        shift
+    done
+
+    if [ -z "$FETCH_OUTPUT_PATH" ] ; then
+        [ -z "$FETCH_OUTPUT_DIR" ]  && FETCH_OUTPUT_DIR="$PWD"
+        [ -z "$FETCH_OUTPUT_NAME" ] && FETCH_OUTPUT_NAME=$(basename "$FETCH_URL")
+
+        FETCH_OUTPUT_PATH="$FETCH_OUTPUT_DIR/$FETCH_OUTPUT_NAME"
+    else
+        FETCH_OUTPUT_DIR="$(dirname $FETCH_OUTPUT_PATH)"
+        FETCH_OUTPUT_NAME="$(basename $FETCH_OUTPUT_PATH)"
+    fi
+
+    if [ ! -d "$FETCH_OUTPUT_DIR" ] ; then
+        run install -d "$FETCH_OUTPUT_DIR"
+    fi
+
+    case $FETCH_URL in
+        *.git) __fetch_via_git ;;
+        *)     __fetch_archive_via_tools ;;
+    esac
+}
+
+sha256sum() {
+    die_if_file_is_not_exist "$1"
+
+    if command -v openssl > /dev/null ; then
+        openssl sha256 "$1" | awk '{print $2}'
+    elif command sha256sum --version > /dev/null 2>&1 ; then
+        sha256sum "$1" | awk '{print $1}'
+    else
+        die "please install openssl or GNU CoreUtils."
+    fi
+}
+
+# $1 FILEPATH
+# $2 expect sha256sum
+is_sha256sum_match() {
+    die_if_file_is_not_exist "$1"
+    [ -z "$2" ] && die "please specify sha256sum."
+    [ "$(sha256sum $1)" = "$2" ]
+}
+
+# $1 FILEPATH
+# $2 expect sha256sum
+die_if_sha256sum_mismatch() {
+    is_sha256sum_match "$1" "$2" || die "sha256sum mismatch.\n    expect : $2\n    actual : $(sha256sum $1)"
 }
 
 __get_os_name_from_uname_a() {
@@ -305,19 +489,21 @@ EOF
 }
 
 location_of_python_module() {
-    PIP_COMMAND=$(command -v pip3) ||
-    PIP_COMMAND=$(command -v pip) ||
-    die "can't found pip command."
-
-    "$PIP_COMMAND" show $1 | grep 'Location:' | cut -d ' ' -f2
+    PIP_COMMAND=$(command -v pip3 || command -v pip)
+    if [ -z "$PIP_COMMAND" ] ; then
+        die "can't found pip command."
+    else
+        "$PIP_COMMAND" show $1 | grep 'Location:' | cut -d ' ' -f2
+    fi
 }
 
 version_of_python_module() {
-    PIP_COMMAND=$(command -v pip3) ||
-    PIP_COMMAND=$(command -v pip) ||
-    die "can't found pip command."
-
-    "$PIP_COMMAND" show $1 | grep 'Version:' | cut -d ' ' -f2
+    PIP_COMMAND=$(command -v pip3 || command -v pip)
+    if [ -z "$PIP_COMMAND" ] ; then
+        die "can't found pip command."
+    else
+        "$PIP_COMMAND" show $1 | grep 'Version:' | cut -d ' ' -f2
+    fi
 }
 
 # retrive the version of a command from it's name or path
@@ -1111,6 +1297,22 @@ __is_libtool_used() {
 
 
 main() {
+    echo "${COLOR_GREEN}autogen.sh is a POSIX shell script to manage GNU Autotools(autoconf automake) and other softwares used by this project.${COLOR_OFF}"
+    echo
+
+    case $1 in
+        ''|-h|--help)
+            cat <<EOF
+Usage:
+./autogen.sh -h | --help
+./autogen.sh -V | --version
+./autogen.sh [ --rc-file=FILE | -x | -d ]
+EOF
+            return 0
+            ;;
+        -V|--version) echo '1.0.0' ; return 0 ;;
+    esac
+
     unset DEBUG
 
     unset STEP_NUM
@@ -1136,22 +1338,7 @@ main() {
 
     unset RC_FILE
 
-    echo "${COLOR_GREEN}autogen.sh is a POSIX shell script to manage GNU Autotools(autoconf automake) and other softwares used by this project.${COLOR_OFF}"
-
     case $1 in
-        '') ;;
-        -h|--help)
-            cat <<EOF
-./autogen.sh -h | --help
-./autogen.sh -V | --version
-./autogen.sh [ --rc-file=FILE | -x | -d ]
-EOF
-            return 0
-            ;;
-        -V|--version)
-            echo "$PROJECT_VERSION"
-            return 0
-            ;;
         -x|-d|--rc-file=*)
             for item in $@
             do
