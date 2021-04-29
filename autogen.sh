@@ -669,6 +669,9 @@ __mingw_w64_x86_64() {
 }
 
 get_pacman_package_name_by_command_name() {
+    if [ "$1" = 'make' ] || [ "$1" = 'gmake' ] ; then
+        echo make
+    fi
     case $NATIVE_OS_TYPE in
         mingw32) __mingw_w64_i686   $(__get_pacman_package_name_by_command_name "$1") ;;
         mingw64) __mingw_w64_x86_64 $(__get_pacman_package_name_by_command_name "$1") ;;

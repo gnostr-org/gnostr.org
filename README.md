@@ -2,7 +2,12 @@
 `autogen.sh` is a `POSIX` shell script to manage `GNU` `Autotools`(`autoconf` `automake`) and other softwares used by your project.
 
 ## how to use
-locate `autogen.sh` in your project.
+```bash
+cd /path/to/your autotools project
+curl -LO https://raw.githubusercontent.com/leleliu008/autogen.sh/master/autogen.sh
+chmod +x autogen.sh
+./autogen.sh
+```
 
 ## autogen.sh command usage
 *   print the help infomation of `autogen.sh` command
@@ -17,12 +22,10 @@ locate `autogen.sh` in your project.
 
 *   gen configure
 
-        ./autogen.sh
-        ./autogen.sh -x
-        ./autogen.sh -d
+        ./autogen.sh [ --rc-file=FILE | -x | -d ]
 
 ## autogen.rc
-`autogen.rc` is also a `POSIX` shell script. It is a extension of `autogen.sh`. It will be automatically loaded if it exists.
+`autogen.rc` is also a `POSIX` shell script. It is a extension of `autogen.sh`. It will be automatically loaded if it exists. you can specify a different one via `--rc-file=FILE`.
 
 a typical example of this file looks like as follows:
 
@@ -46,6 +49,8 @@ gen_config_post() {
     # do whatever you want.
 }
 ```
+
+[ready-to-use axample](https://raw.githubusercontent.com/leleliu008/autogen.sh/master/autogen.rc)
 
 ### the function can be declared in `autogen.rc`
 |function|overview|
