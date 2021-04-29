@@ -10,10 +10,9 @@ jobs:
   test:
     runs-on: ubuntu-20.04
     
-    container: gentoo/stage3-amd64-nomultilib
+    container: madhacking/gentoo
 
     steps:
-      - run: install -d /var/db/repos/gentoo
       - run: emerge git file
 
       - uses: actions/checkout@v2
