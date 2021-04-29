@@ -1301,7 +1301,7 @@ main() {
     echo
 
     case $1 in
-        ''|-h|--help)
+        -h|--help)
             cat <<EOF
 Usage:
 ./autogen.sh -h | --help
@@ -1339,6 +1339,7 @@ EOF
     unset RC_FILE
 
     case $1 in
+        '') ;;
         -x|-d|--rc-file=*)
             for item in $@
             do
