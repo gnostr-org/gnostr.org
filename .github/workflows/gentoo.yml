@@ -13,6 +13,7 @@ jobs:
     container: gentoo/stage3-amd64-nomultilib
 
     steps:
+      - run: install -d /var/db/repos/gentoo
       - run: emerge git file
 
       - uses: actions/checkout@v2
