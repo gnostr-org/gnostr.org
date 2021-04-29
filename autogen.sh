@@ -709,8 +709,7 @@ get_choco_package_name_by_command_name() {
     automake|autoheader)
               echo "automake" ;;
     autopoint) echo "gettext" ;;
-    pkg-config) 
-              echo "pkgconf" ;;
+    pkg-config) echo "pkg-config" ;;
         *) echo "$1"
     esac
 }
