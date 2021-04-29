@@ -3,7 +3,6 @@
 # https://github.com/leleliu008/autogen.sh
 
 cd "$(dirname "$0")" || exit 1
-CURRENT_DIR="$PWD"
 
 COLOR_RED='\033[0;31m'          # Red
 COLOR_GREEN='\033[0;32m'        # Green
@@ -1208,16 +1207,15 @@ EOF
     id | tr ' ' '\n' | head -n 2
 
     step "show project info"
-    
-    PROJECT_DIR="$CURRENT_DIR"
 
     die_if_file_is_not_exist configure.ac
-    
+
+    PROJECT_DIR="$PWD"
+
     # https://www.gnu.org/software/autoconf/manual/autoconf-2.69/html_node/Initializing-configure.html
     PROJECT_NAME=$(grep 'AC_INIT\s*(\[.*' configure.ac | sed 's/AC_INIT\s*(\[\(.*\)\],.*/\1/')
     PROJECT_VERSION=$(grep 'AC_INIT\s*(\[.*' configure.ac | sed "s/AC_INIT\s*(\[$PROJECT_NAME\],\[\(.*\)\].*/\1/")
 
-    echo "CURRENT_DIR     = $CURRENT_DIR"
     echo "PROJECT_DIR     = $PROJECT_DIR"
     echo "PROJECT_NAME    = $PROJECT_NAME"
     echo "PROJECT_VERSION = $PROJECT_VERSION"
