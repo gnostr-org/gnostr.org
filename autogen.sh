@@ -100,8 +100,11 @@ sed_in_place() {
     if command -v gsed > /dev/null ; then
         run gsed -i "\"$1\"" $(shiftn 1 $@)
     elif command -v sed  > /dev/null ; then
-        run sed -i      "\"$1\"" $(shiftn 1 $@) 2> /dev/null ||
-        run sed -i '""' "\"$1\"" $(shiftn 1 $@)
+        if sed -i 's/a/b/g' $(mktemp) 2> /dev/null ; then
+            run sed -i "\"$1\"" $(shiftn 1 $@)
+        else
+            run sed -i '""' "\"$1\"" $(shiftn 1 $@)
+        fi
     else
         die "please install sed utility."
     fi
