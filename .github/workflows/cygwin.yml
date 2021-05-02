@@ -15,7 +15,10 @@ jobs:
         shell: C:\tools\cygwin\bin\bash.exe -l -i {0}
 
     steps:
-    - run: choco install -y --source cygwin dos2unix
+    - run: choco install -y cygwin
+      shell: pwsh
+
+    - run: choco install -y --source cygwin
       shell: pwsh
     
     - run: git config --global core.autocrlf input
