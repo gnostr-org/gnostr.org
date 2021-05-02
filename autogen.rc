@@ -19,8 +19,8 @@ gen_config_post() {
     for input in optlib/*.ctags
     do
         output="${input%.ctags}.c"
-        printf "${COLOR_GREEN}./misc/optlib2c %-27s > %s${COLOR_OFF}\n" "$input" "$output"
-        ./misc/optlib2c "$input" > "$output" || return 1
+        printf "${COLOR_GREEN}perl misc/optlib2c %-27s > %s${COLOR_OFF}\n" "$input" "$output"
+        perl misc/optlib2c "$input" > "$output" || return 1
     done
     
     __check_if_c_compiler_installed
