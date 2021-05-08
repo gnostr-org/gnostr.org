@@ -1552,7 +1552,7 @@ EOF
     for item in $REQUIRED
     do
         REQUIRED_ITEM_INDEX=$(expr ${REQUIRED_ITEM_INDEX-0} + 1)
-        __handle_required_item $(__decode "$item")
+        __handle_required_item $(__decode "$item") || return 1
     done
     unset REQUIRED_ITEM_INDEX
 
