@@ -167,8 +167,7 @@ __fetch_archive_via_tools() {
     AVAILABLE_FETCH_TOOL=$(__get_available_fetch_tool)
 
     if [ -z "$AVAILABLE_FETCH_TOOL" ] ; then
-        warn "no fetch tools found, install curl via package manager"
-        __install_command_via_available_package_manager curl
+        __handle_required_item required command curl || return 1
         if exists command curl ; then
             AVAILABLE_FETCH_TOOL=curl
         else
@@ -723,10 +722,9 @@ get_choco_package_name_by_command_name() {
 
 get_pkg_add_package_name_by_command_name() {
     case $1 in
-      cc|gcc) echo 'gcc' ;;
-        make) echo 'gmake' ;;
-       gmake) echo 'gmake' ;;
+          cc) echo 'gcc'   ;;
          gm4) echo 'm4'    ;;
+        make) echo 'gmake' ;;
         perl) echo 'perl5' ;;
        gperf) echo 'gperf' ;;
         gsed) echo 'gnu-sed'  ;;
@@ -744,20 +742,17 @@ get_pkg_add_package_name_by_command_name() {
     automake-1.16|autoheader-1.16)
               echo "automake-1.16.2" ;;
     autopoint) echo "gettext" ;;
-    pkg-config) 
-              echo "pkgconf" ;;
+    pkg-config) echo "pkgconf" ;;
         *) echo "$1"
     esac
 }
 
 get_pkgin_package_name_by_command_name() {
     case $1 in
-      cc|gcc) echo 'gcc' ;;
-        make) echo 'gmake' ;;
-       gmake) echo 'gmake' ;;
+          cc) echo 'gcc'   ;;
          gm4) echo 'm4'    ;;
+        make) echo 'gmake' ;;
         perl) echo 'perl5' ;;
-       gperf) echo 'gperf' ;;
         gsed) echo 'gnu-sed'  ;;
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
@@ -769,20 +764,17 @@ get_pkgin_package_name_by_command_name() {
     automake|autoheader)
               echo "automake" ;;
     autopoint) echo "gettext" ;;
-    pkg-config) 
-              echo "pkgconf" ;;
+    pkg-config) echo "pkgconf" ;;
         *) echo "$1"
     esac
 }
 
 get_pkg_package_name_by_command_name() {
     case $1 in
-      cc|gcc) echo 'gcc' ;;
-        make) echo 'gmake' ;;
-       gmake) echo 'gmake' ;;
+          cc) echo 'gcc'   ;;
          gm4) echo 'm4'    ;;
+        make) echo 'gmake' ;;
         perl) echo 'perl5' ;;
-       gperf) echo 'gperf' ;;
         gsed) echo 'gnu-sed'  ;;
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
@@ -794,17 +786,15 @@ get_pkg_package_name_by_command_name() {
     automake|autoheader)
               echo "automake" ;;
     autopoint) echo "gettext" ;;
-    pkg-config) 
-              echo "pkgconf" ;;
+    pkg-config) echo "pkgconf" ;;
         *) echo "$1"
     esac
 }
 
 get_emerge_package_name_by_command_name() {
     case $1 in
-      cc|gcc) echo 'gcc' ;;
+          cc) echo 'gcc' ;;
          gm4) echo 'm4'    ;;
-       gperf) echo 'gperf' ;;
         gsed) echo 'gnu-sed'  ;;
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
@@ -816,17 +806,15 @@ get_emerge_package_name_by_command_name() {
     automake|autoheader)
               echo "automake" ;;
     autopoint) echo "gettext" ;;
-    pkg-config) 
-              echo "pkgconf" ;;
+    pkg-config) echo "pkgconf" ;;
         *) echo "$1"
     esac
 }
 
 __get_pacman_package_name_by_command_name() {
     case $1 in
-      cc|gcc) echo 'gcc' ;;
-         gm4) echo 'm4'    ;;
-       gperf) echo 'gperf' ;;
+          cc) echo 'gcc'      ;;
+         gm4) echo 'm4'       ;;
         gsed) echo 'gnu-sed'  ;;
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
@@ -838,8 +826,7 @@ __get_pacman_package_name_by_command_name() {
     automake|autoheader)
               echo "automake" ;;
     autopoint) echo "gettext" ;;
-    pkg-config) 
-              echo "pkgconf" ;;
+    pkg-config) echo "pkgconf" ;;
         *) echo "$1"
     esac
 }
@@ -1111,6 +1098,116 @@ __install_command_via_available_package_manager() {
 }
 
 # examples:
+# URL pkg-config ge 0.18
+# URL python3    ge 3.5
+# URL make
+__install_command_via_fetch_prebuild_binary() {
+    print "🔥  ${COLOR_YELLOW}required command${COLOR_OFF} ${COLOR_GREEN}$(shiftn 1 $@)${COLOR_OFF}${COLOR_YELLOW}, but${COLOR_OFF} ${COLOR_GREEN}$2${COLOR_OFF} ${COLOR_YELLOW}command not found, try to install it via${COLOR_OFF} ${COLOR_GREEN}fetch prebuild binary${COLOR_OFF}\n"
+
+    unset PREBUILD_BINARY_FILENAME
+    unset PREBUILD_BINARY_FILEPATH
+
+    PREBUILD_BINARY_FILENAME=$(basename "$1")
+    PREBUILD_BINARY_FILEPATH="$PREBUILD_BINARY_CACHED_DIR/$PREBUILD_BINARY_FILENAME"
+
+    if [ -d    "$PREBUILD_BINARY_UNPACK_DIR/$2" ] ; then
+        rm -rf "$PREBUILD_BINARY_UNPACK_DIR/$2" || return 1
+    fi
+
+    if [ ! -f "$PREBUILD_BINARY_FILEPATH" ] ; then
+        run fetch "$1" --output-dir="$PREBUILD_BINARY_CACHED_DIR" --output-name="$PREBUILD_BINARY_FILENAME" || return 1
+    fi
+
+    run install -d "$PREBUILD_BINARY_UNPACK_DIR/$2" || return 1
+
+    case $1 in
+        *.zip)
+            __handle_required_item required command unzip &&
+            run unzip "$PREBUILD_BINARY_FILEPATH" -d "$PREBUILD_BINARY_UNPACK_DIR/$2"
+            ;;
+        *.tar.xz)
+            __handle_required_item required command tar  &&
+            __handle_required_item required command xz   &&
+            run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_UNPACK_DIR/$2" --strip-components 1
+            ;;
+        *.tar.gz)
+            __handle_required_item required command tar  &&
+            __handle_required_item required command gzip &&
+            run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_UNPACK_DIR/$2" --strip-components 1
+            ;;
+        *.tar.lz)
+            __handle_required_item required command tar  &&
+            __handle_required_item required command lzip &&
+            run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_UNPACK_DIR/$2" --strip-components 1
+            ;;
+        *.tar.bz2)
+            __handle_required_item required command tar   &&
+            __handle_required_item required command bzip2 &&
+            run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_UNPACK_DIR/$2" --strip-components 1
+            ;;
+        *.tgz)
+            __handle_required_item required command tar  &&
+            __handle_required_item required command gzip &&
+            run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_UNPACK_DIR/$2" --strip-components 1
+            ;;
+        *.txz)
+            __handle_required_item required command tar &&
+            __handle_required_item required command xz  &&
+            run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_UNPACK_DIR/$2" --strip-components 1
+    esac
+
+    if [ -d "$PREBUILD_BINARY_UNPACK_DIR/$2/bin" ] ; then
+        export PATH="$PREBUILD_BINARY_UNPACK_DIR/$2/bin:$PATH"
+    fi
+    if [ "$NATIVE_OS_KIND" = 'darwin' ] ; then
+        for item in $(find "$PREBUILD_BINARY_UNPACK_DIR" -d 4 -type d -name bin)
+        do
+            export PATH="$item:$PATH"
+        done
+    fi
+}
+
+# examples:
+# pkg-config ge 0.18
+# python3    ge 3.5
+# make
+__get_prebuild_binary_fetch_url_by_command_name() {
+    case $1 in
+        cmake)
+            case $NATIVE_OS_KIND in
+                linux)
+                    if [ "$NATIVE_OS_LIBC" = 'glibc' ] ; then
+                        # https://cmake.org/download
+                        echo "https://github.com/Kitware/CMake/releases/download/v3.20.2/cmake-3.20.2-linux-x86_64.tar.gz"
+                    fi
+                    ;;
+                darwin)
+                    if ! exists command brew ; then
+                        echo "https://github.com/Kitware/CMake/releases/download/v3.20.2/cmake-3.20.2-macos-universal.tar.gz"
+                    fi
+            esac
+    esac
+}
+
+# examples:
+# pkg-config ge 0.18
+# python3    ge 3.5
+# make
+__install_command() {
+    if required_command_exists_and_version_matched $@ ; then
+        printf "command %-10s %-10s ${COLOR_GREEN}FOUND${COLOR_OFF} %-8s %s\n" "$1" "$2 $3" "$(version_of_command $1)" "$(command -v $1)"
+    else
+        unset PREBUILD_BINARY_FETCH_URL
+        PREBUILD_BINARY_FETCH_URL=$(__get_prebuild_binary_fetch_url_by_command_name "$1")
+        if [ -z "$PREBUILD_BINARY_FETCH_URL" ] ; then
+            __install_command_via_available_package_manager $@
+        else
+            __install_command_via_fetch_prebuild_binary "$PREBUILD_BINARY_FETCH_URL" $@
+        fi
+    fi
+}
+
+# examples:
 # pkg-config ge 0.18
 # python3    ge 3.5
 # make
@@ -1151,13 +1248,13 @@ __handle_required_item() {
                     done
                     for item in $(echo "$1" | tr ':' ' ')
                     do
-                        if __install_command_via_available_package_manager "$item" $2 $3 ; then
+                        if __install_command "$item" $2 $3 ; then
                             eval "REQUIRED_ITEM_$REQUIRED_ITEM_INDEX=$item"
                             return 0
                         fi
                     done
                     ;;
-                *)  __install_command_via_available_package_manager $@
+                *)  __install_command $@
             esac
             ;;
         python|python3)

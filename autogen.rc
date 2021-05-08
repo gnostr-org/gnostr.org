@@ -1,6 +1,6 @@
 # https://github.com/leleliu008/autogen.sh
 
-required command cc
+required command cc:gcc:clang
 required command pkg-config ge 0.18
 required command python3:python:python3.5:python3.6:python3.7:python3.8:python3.9 ge 3.5
 
@@ -22,8 +22,8 @@ gen_config_post() {
         perl misc/optlib2c "$input" > "$output" || return 1
     done
     
-    __check_if_c_compiler_installed
-    
+    __die_if_no_c_compiler
+
     step "check if $HOST_CC works."
     (__check_if_c_compiler_works) || die "$HOST_CC not works."
     
@@ -39,10 +39,9 @@ gen_config_post() {
     die "build packcc failed."
 }
 
-__check_if_c_compiler_installed() {
-    step "check if C compiler installed."
-    
-    if [ -z "$HOST_CC" ] ; then
+__die_if_no_c_compiler() {
+    step "find c compiler"
+    [ -z "$HOST_CC" ] && {
         for cc in cc gcc clang
         do
             if exists command "$cc" ; then
@@ -50,14 +49,12 @@ __check_if_c_compiler_installed() {
                 break
             fi
         done
-    fi
+    }
+
+    echo "HOST_CC     = $HOST_CC"
+    echo "HOST_CFLAGS = $HOST_CFLAGS"
     
-    if [ -z "$HOST_CC" ] ; then
-        die "can't find a C compiler. you can use HOST_CC and HOST_CFLAGS environment variable"
-    else
-        echo "HOST_CC     = $HOST_CC"
-        echo "HOST_CFLAGS = $HOST_CFLAGS"
-    fi
+    [ -z "$HOST_CC" ] && die "can't find a C compiler. you can use HOST_CC and HOST_CFLAGS environment variable"
 }
 
 # run in a subshell
@@ -73,14 +70,11 @@ __check_if_c_compiler_works() {
         run cat test.c
     fi
     
-    if run "$HOST_CC $HOST_CFLAGS test.c" ; then
-        run ls
-        if exists file a.exe ; then
-            run "echo "host_os_exec_ext='.exe'" > $PROJECT_DIR/config.host"
-        else
-            run "echo 'host_os_exec_ext='       > $PROJECT_DIR/config.host"
-        fi
+    run "$HOST_CC $HOST_CFLAGS test.c" || return 1
+    run ls
+    if exists file a.exe ; then
+        run "echo "host_os_exec_ext='.exe'" > $PROJECT_DIR/config.host"
     else
-        return 1
+        run "echo 'host_os_exec_ext='       > $PROJECT_DIR/config.host"
     fi
 }
