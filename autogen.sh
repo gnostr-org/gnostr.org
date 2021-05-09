@@ -1148,7 +1148,7 @@ __install_command_via_package_manager() {
 # make
 __install_command_via_available_package_manager() {
     if required_command_exists_and_version_matched $@ ; then
-        printf "command %-10s %-10s ${COLOR_GREEN}FOUND${COLOR_OFF} %-8s %s\n" "$1" "$2 $3" "$(version_of_command $1)" "$(command -v $1)"
+        return 0
     else
         if [ -z "$AVAILABLE_PACKAGE_MANAGER_LIST" ] ; then
             AVAILABLE_PACKAGE_MANAGER_LIST=$(__available_package_manager_list)
@@ -1264,7 +1264,7 @@ __get_prebuild_binary_fetch_url_by_command_name() {
 # make
 __install_command() {
     if required_command_exists_and_version_matched $@ ; then
-        printf "command %-10s %-10s ${COLOR_GREEN}FOUND${COLOR_OFF} %-8s %s\n" "$1" "$2 $3" "$(version_of_command $1)" "$(command -v $1)"
+        return 0
     else
         unset PREBUILD_BINARY_FETCH_URL
         PREBUILD_BINARY_FETCH_URL=$(__get_prebuild_binary_fetch_url_by_command_name "$1")
@@ -1311,7 +1311,6 @@ __handle_required_item() {
                     do
                         if required_command_exists_and_version_matched "$item" $2 $3 ; then
                             eval "REQUIRED_ITEM_$REQUIRED_ITEM_INDEX=$item"
-                            printf "command %-10s %-10s ${COLOR_GREEN}FOUND${COLOR_OFF} %-8s %s\n" "$item" "$2 $3" "$(version_of_command $item)" "$(command -v $item)"
                             return 0
                         fi
                     done
