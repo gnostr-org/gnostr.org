@@ -71,11 +71,6 @@ step() {
     echo "${COLOR_PURPLE}=>> STEP ${STEP_NUM} : ${STEP_MESSAGE} ${COLOR_OFF}"
 }
 
-title() {
-    echo
-    echo "${COLOR_PURPLE}=>> $@${COLOR_OFF}"
-}
-
 run() {
     info "$*"
     eval "$*"
@@ -127,6 +122,64 @@ trim() {
         fi
     fi
 }
+
+tolower() {
+    if [ $# -eq 0 ] ; then
+        if command -v tr > /dev/null ; then
+            tr A-Z a-z
+        elif command -v  awk > /dev/null ; then
+            awk '{print(tolower($0))}'
+        elif command -v gawk > /dev/null ; then
+            gawk '{print(tolower($0))}'
+        else
+            die "please install GNU CoreUtils or awk."
+        fi
+    else
+        if [ -z "$*" ] ; then
+            return 0
+        fi
+        if command -v tr > /dev/null ; then
+            echo "$*" | tr A-Z a-z
+        elif command -v  awk > /dev/null ; then
+            echo "$*" | awk '{print(tolower($0))}'
+        elif command -v gawk > /dev/null ; then
+            echo "$*" | gawk '{print(tolower($0))}'
+        elif command -v python > /dev/null ; then
+            python  -c 'import sys; print(sys.argv[1].lower());' "$*"
+        elif command -v python3 > /dev/null ; then
+            python3 -c 'import sys; print(sys.argv[1].lower());' "$*"
+        elif command -v python2 > /dev/null ; then
+            python2 -c 'import sys; print(sys.argv[1].lower());' "$*"
+        elif command -v perl > /dev/null ; then
+            perl -e 'print @ARGV[0],"\n"' "$1"
+        elif command -v node > /dev/null ; then
+            node -e 'console.log(process.argv[2].toLowerCase())' - "$*"
+        else
+            die "please install GNU CoreUtils or awk."
+        fi
+    fi
+}
+
+nproc() {
+    if command nproc --version > /dev/null 2>&1 ; then
+        command nproc
+    elif test -f /proc/cpuinfo ; then
+        grep -c processor /proc/cpuinfo
+    elif command -v sysctl > /dev/null ; then
+        sysctl -n machdep.cpu.thread_count
+    else
+        echo 4
+    fi
+}
+
+format_unix_timestamp() {
+   date -jf "%s" "$1" "$2" 2> /dev/null ||
+   date -d      "@$1" "$2"
+}
+
+# }}}
+##############################################################################
+# {{{ fetch
 
 __get_available_fetch_tool() {
     for item in curl wget http lynx aria2c axel
@@ -286,6 +339,10 @@ is_sha256sum_match() {
 die_if_sha256sum_mismatch() {
     is_sha256sum_match "$1" "$2" || die "sha256sum mismatch.\n    expect : $2\n    actual : $(sha256sum $1)"
 }
+
+# }}}
+##############################################################################
+# {{{ os
 
 __get_os_name_from_uname_a() {
     if command -v uname > /dev/null ; then
@@ -512,14 +569,9 @@ EOF
     fi
 }
 
-location_of_python_module() {
-    PIP_COMMAND=$(command -v pip3 || command -v pip)
-    if [ -z "$PIP_COMMAND" ] ; then
-        die "can't found pip command."
-    else
-        "$PIP_COMMAND" show $1 | grep 'Location:' | cut -d ' ' -f2
-    fi
-}
+# }}}
+##############################################################################
+# {{{ version
 
 version_of_python_module() {
     PIP_COMMAND=$(command -v pip3 || command -v pip)
@@ -700,6 +752,10 @@ command_version_match() {
     version_match "$(version_of_command "$1")" "$2" "$3"
 }
 
+# }}}
+##############################################################################
+# {{{ get_XX_package_name_by_command_name
+
 get_choco_package_name_by_command_name() {
     case $1 in
       cc|gcc) echo 'gcc-g++' ;;
@@ -813,7 +869,12 @@ get_emerge_package_name_by_command_name() {
 
 __get_pacman_package_name_by_command_name() {
     case $1 in
-          cc) echo 'gcc'      ;;
+          cc|gcc)
+            case $NATIVE_OS_TYPE in
+                mingw32|mingw64) echo 'toolchain' ;;
+                *)               echo 'gcc'
+            esac
+            ;;
          gm4) echo 'm4'       ;;
         gsed) echo 'gnu-sed'  ;;
      objcopy) echo 'binutils' ;;
@@ -992,6 +1053,10 @@ get_brew_package_name_by_command_name() {
     esac
 }
 
+# }}}
+##############################################################################
+# {{{ __available_package_manager_list
+
 __available_package_manager_list() {
     if exists command brew ; then
         echo brew
@@ -1027,6 +1092,10 @@ __available_package_manager_list() {
         echo pkg_add
     fi
 }
+
+# }}}
+##############################################################################
+# {{{ __install_required
 
 # $1 package manager name
 # $2 package name
@@ -1317,6 +1386,15 @@ __print_required_or_optional_item() {
     esac
 }
 
+location_of_python_module() {
+    PIP_COMMAND=$(command -v pip3 || command -v pip)
+    if [ -z "$PIP_COMMAND" ] ; then
+        die "can't found pip command."
+    else
+        "$PIP_COMMAND" show $1 | grep 'Location:' | cut -d ' ' -f2
+    fi
+}
+
 __encode() {
     if [ $# -eq 0 ] ; then
         tr ' ' '|'
@@ -1381,6 +1459,62 @@ optional() {
     fi
 }
 
+__handle_required_dependencies() {
+    step "handle required dependencies"
+
+    for item in $REQUIRED
+    do
+        REQUIRED_ITEM_INDEX=$(expr ${REQUIRED_ITEM_INDEX-0} + 1)
+        __handle_required_item $(__decode "$item") || return 1
+    done
+    unset REQUIRED_ITEM_INDEX
+}
+
+__printf_required_dependencies() {
+    step "list required dependencies"
+    if [ -z "$REQUIRED" ] ; then
+        warn "no required dependencies."
+    else
+        printf "%-7s %-11s %-10s %-10s %s\n" TYPE NAME EXPECTED ACTUAL LOCATION
+        for item in $REQUIRED
+        do
+            REQUIRED_ITEM_INDEX=$(expr ${REQUIRED_ITEM_INDEX-0} + 1)
+            __print_required_or_optional_item $(__decode "$item")
+        done
+        unset REQUIRED_ITEM_INDEX
+    fi
+}
+
+__printf_optional_dependencies() {
+    step "list optional dependencies"
+    if [ -z "$OPTIONAL" ] ; then
+        warn "no optional dependencies."
+    else
+        printf "%-7s %-11s %-10s %-10s %s\n" TYPE NAME EXPECTED ACTUAL LOCATION
+        for item in $OPTIONAL
+        do
+            OPTIONAL_ITEM_INDEX=$(expr ${OPTIONAL_ITEM_INDEX-0} + 1)
+            __print_required_or_optional_item $(__decode "$item")
+        done
+        unset OPTIONAL_ITEM_INDEX
+    fi
+}
+
+# }}}
+##############################################################################
+# {{{ __is_libtool_used
+
+__is_libtool_used() {
+    # https://www.gnu.org/software/libtool/manual/html_node/LT_005fINIT.html
+    grep 'LT_INIT\s*('     configure.ac ||
+    grep 'AC_PROG_LIBTOOL' configure.ac ||
+    grep 'AM_PROG_LIBTOOL' configure.ac
+}
+
+# }}}
+##############################################################################
+# {{{ gen_config
+
 gen_config_pre() {
     step "gen config pre"
     warn "do nothing, you can overide this function to do whatever you want."
@@ -1396,13 +1530,9 @@ gen_config_post() {
     warn "do nothing, you can overide this function to do whatever you want."
 }
 
-__is_libtool_used() {
-    # https://www.gnu.org/software/libtool/manual/html_node/LT_005fINIT.html
-    grep 'LT_INIT\s*('     configure.ac ||
-    grep 'AC_PROG_LIBTOOL' configure.ac ||
-    grep 'AM_PROG_LIBTOOL' configure.ac
-}
-
+# }}}
+##############################################################################
+# {{{ main
 
 main() {
     echo "${COLOR_GREEN}autogen.sh is a POSIX shell script to manage GNU Autotools(autoconf automake) and other softwares used by this project.${COLOR_OFF}"
@@ -1524,7 +1654,7 @@ EOF
     # https://www.gnu.org/software/autoconf/manual/autoconf-2.69/html_node/Versioning.html
     AUTOCONF_VERSION_MREQUIRED=$(grep 'AC_PREREQ\s*(\[.*\])\s*$' configure.ac | sed 's/AC_PREREQ\s*(\[\(.*\)\])/\1/')
 
-    step "load autogen.rc"
+    step "load $RC_FILE"
     if exists file "$RC_FILE" ; then
         if . "$RC_FILE" ; then
             success "$RC_FILE loaded successfully."
@@ -1541,53 +1671,17 @@ EOF
     required command perl
     required command make:gmake:bmake
 
-    __is_libtool_used && required command libtoolize
+    __is_libtool_used &&
+    required command libtoolize
 
-    step "handle required"
-    if [ "$DEBUG" = 'true' ] ; then
-        echo
-        echo "REQUIRED=$REQUIRED"
-        echo "OPTIONAL=$OPTIONAL"
-    fi
-    for item in $REQUIRED
-    do
-        REQUIRED_ITEM_INDEX=$(expr ${REQUIRED_ITEM_INDEX-0} + 1)
-        __handle_required_item $(__decode "$item") || return 1
-    done
-    unset REQUIRED_ITEM_INDEX
-
-
-    step "list required"
-    if [ -z "$REQUIRED" ] ; then
-        warn "no required."
-    else
-        printf "%-7s %-11s %-10s %-10s %s\n" TYPE NAME EXPECTED ACTUAL LOCATION
-        for item in $REQUIRED
-        do
-            REQUIRED_ITEM_INDEX=$(expr ${REQUIRED_ITEM_INDEX-0} + 1)
-            __print_required_or_optional_item $(__decode "$item")
-        done
-        unset REQUIRED_ITEM_INDEX
-    fi
-
-
-    step "list optional"
-    if [ -z "$OPTIONAL" ] ; then
-        warn "no optional."
-    else
-        printf "%-7s %-11s %-10s %-10s %s\n" TYPE NAME EXPECTED ACTUAL LOCATION
-        for item in $OPTIONAL
-        do
-            OPTIONAL_ITEM_INDEX=$(expr ${OPTIONAL_ITEM_INDEX-0} + 1)
-            __print_required_or_optional_item $(__decode "$item")
-        done
-        unset OPTIONAL_ITEM_INDEX
-    fi
+    __handle_required_dependencies || return 1
+    __printf_required_dependencies
+    __printf_optional_dependencies
 
     gen_config_pre  || return 1
     gen_config      || return 1
     gen_config_post || return 1
-    
+
     echo
     success "Done."
 }
