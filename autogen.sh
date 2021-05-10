@@ -612,6 +612,7 @@ version_of_command() {
         gperf) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f3 ;;
         groff) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f4 ;;
      help2man) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f3 ;;
+ sphinx-build) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f2 ;;
          file) "$1" --version 2> /dev/null | head -n 1 | cut -d '-' -f2 ;;
       itstool) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f2 ;;
        protoc) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f2 ;;
@@ -756,6 +757,7 @@ command_version_match() {
 ##############################################################################
 # {{{ get_XX_package_name_by_command_name
 
+# https://cygwin.com/packages/package_list.html
 get_choco_package_name_by_command_name() {
     case $1 in
       cc|gcc) echo 'gcc-g++' ;;
@@ -765,14 +767,13 @@ get_choco_package_name_by_command_name() {
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
-    libtool|libtoolize|glibtool|glibtoolize)
-              echo "libtool" ;;
-    autoreconf|autoconf)
-              echo "autoconf" ;;
-    automake|autoheader)
-              echo "automake" ;;
-    autopoint) echo "gettext" ;;
-        *) echo "$1"
+    sphinx-build) echo 'python38-sphinx' ;;
+    glibtool|libtoolize|glibtoolize)
+                echo "libtool"  ;;
+    autoreconf) echo "autoconf" ;;
+    autoheader) echo "automake" ;;
+    autopoint)  echo "gettext"  ;;
+        *)      echo "$1"
     esac
 }
 
@@ -813,15 +814,13 @@ get_pkgin_package_name_by_command_name() {
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
-    libtool|libtoolize|glibtool|glibtoolize)
-              echo "libtool" ;;
-    autoreconf|autoconf)
-              echo "autoconf" ;;
-    automake|autoheader)
-              echo "automake" ;;
-    autopoint) echo "gettext" ;;
-    pkg-config) echo "pkgconf" ;;
-        *) echo "$1"
+    glibtool|libtoolize|glibtoolize)
+                echo "libtool"  ;;
+    autoreconf) echo "autoconf" ;;
+    autoheader) echo "automake" ;;
+    autopoint)  echo "gettext"  ;;
+    pkg-config) echo "pkgconf"  ;;
+        *)      echo "$1"
     esac
 }
 
@@ -836,14 +835,12 @@ get_pkg_package_name_by_command_name() {
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
     libtool|libtoolize|glibtool|glibtoolize)
-              echo "libtool" ;;
-    autoreconf|autoconf)
-              echo "autoconf" ;;
-    automake|autoheader)
-              echo "automake" ;;
-    autopoint) echo "gettext" ;;
-    pkg-config) echo "pkgconf" ;;
-        *) echo "$1"
+                echo "libtool"  ;;
+    autoreconf) echo "autoconf" ;;
+    autoheader) echo "automake" ;;
+    autopoint)  echo "gettext"  ;;
+    pkg-config) echo "pkgconf"  ;;
+        *)      echo "$1"
     esac
 }
 
@@ -855,15 +852,14 @@ get_emerge_package_name_by_command_name() {
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
+    sphinx-build) echo "sphinx" ;;
     libtool|libtoolize|glibtool|glibtoolize)
-              echo "libtool" ;;
-    autoreconf|autoconf)
-              echo "autoconf" ;;
-    automake|autoheader)
-              echo "automake" ;;
-    autopoint) echo "gettext" ;;
-    pkg-config) echo "pkgconf" ;;
-        *) echo "$1"
+                echo "libtool"  ;;
+    autoreconf) echo "autoconf" ;;
+    autoheader) echo "automake" ;;
+    autopoint)  echo "gettext"  ;;
+    pkg-config) echo "pkgconf"  ;;
+        *)      echo "$1"
     esac
 }
 
@@ -880,15 +876,14 @@ __get_pacman_package_name_by_command_name() {
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
+    sphinx-build) echo "python-sphinx" ;;
     libtool|libtoolize|glibtool|glibtoolize)
-              echo "libtool" ;;
-    autoreconf|autoconf)
-              echo "autoconf" ;;
-    automake|autoheader)
-              echo "automake" ;;
-    autopoint) echo "gettext" ;;
-    pkg-config) echo "pkgconf" ;;
-        *) echo "$1"
+                echo "libtool"  ;;
+    autoreconf) echo "autoconf" ;;
+    autoheader) echo "automake" ;;
+    autopoint)  echo "gettext"  ;;
+    pkg-config) echo "pkgconf"  ;;
+        *)      echo "$1"
     esac
 }
 
@@ -928,16 +923,13 @@ get_xbps_package_name_by_command_name() {
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
-    libtool|libtoolize|glibtool|glibtoolize)
-              echo "libtool" ;;
-    autoreconf|autoconf)
-              echo "autoconf" ;;
-    automake|autoheader)
-              echo "automake" ;;
-    autopoint) echo "gettext" ;;
-    pkg-config) 
-              echo "pkgconf" ;;
-        *) echo "$1"
+    glibtool|libtoolize|glibtoolize)
+                echo "libtool"  ;;
+    autoreconf) echo "autoconf" ;;
+    autoheader) echo "automake" ;;
+    autopoint)  echo "gettext"  ;;
+    pkg-config) echo "pkgconf"  ;;
+        *)      echo "$1"
     esac
 }
 
@@ -950,15 +942,13 @@ get_apk_package_name_by_command_name() {
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
-    libtool|libtoolize|glibtool|glibtoolize)
-              echo "libtool" ;;
-    autoreconf|autoconf)
-              echo "autoconf" ;;
-    automake|autoheader)
-              echo "automake" ;;
-    autopoint) echo "gettext" ;;
-    pkg-config) 
-              echo "pkgconf" ;;
+    sphinx-build) echo "sphinx" ;;
+    glibtool|libtoolize|glibtoolize)
+                echo "libtool"  ;;
+    autoreconf) echo "autoconf" ;;
+    autoheader) echo "automake" ;;
+    autopoint)  echo "gettext"  ;;
+    pkg-config) echo "pkgconf"  ;;
         *) echo "$1"
     esac
 }
@@ -972,12 +962,14 @@ get_zypper_package_name_by_command_name() {
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
-    libtool|libtoolize|glibtool|glibtoolize)
-              echo "libtool" ;;
-    autoreconf|autoconf|automake|autoheader)
-              echo "automake" ;;
-    autopoint) echo "gettext" ;;
-        *) echo "$1"
+    sphinx-build) echo "python3-Sphinx" ;;
+    glibtool|libtoolize|glibtoolize)
+                echo "libtool"  ;;
+    autoreconf) echo "autoconf" ;;
+    autoheader) echo "automake" ;;
+    autopoint)  echo "gettext"  ;;
+    autopoint)  echo "gettext"  ;;
+        *)      echo "$1"
     esac
 }
 
@@ -990,12 +982,13 @@ get_dnf_package_name_by_command_name() {
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
-    libtool|libtoolize|glibtool|glibtoolize)
-              echo "libtool" ;;
-    autoreconf|autoconf|automake|autoheader)
-              echo "automake" ;;
-    autopoint) echo "gettext" ;;
-        *) echo "$1"
+    sphinx-build) echo "python-sphinx" ;;
+    glibtool|libtoolize|glibtoolize)
+                echo "libtool"  ;;
+    autoreconf) echo "autoconf" ;;
+    autoheader) echo "automake" ;;
+    autopoint)  echo "gettext"  ;;
+        *)      echo "$1"
     esac
 }
 
@@ -1008,13 +1001,18 @@ get_yum_package_name_by_command_name() {
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
-    libtool|libtoolize|glibtool|glibtoolize)
-              echo "libtool" ;;
-    autoreconf|autoconf|automake|autoheader)
-              echo "automake" ;;
-    autopoint) echo "gettext" ;;
-        *) echo "$1"
+    sphinx-build) echo "python-sphinx" ;;
+    glibtool|libtoolize|glibtoolize)
+                echo "libtool"  ;;
+    autoreconf) echo "autoconf" ;;
+    autoheader) echo "automake" ;;
+    autopoint)  echo "gettext"  ;;
+        *)      echo "$1"
     esac
+}
+
+get_apt_get_package_name_by_command_name() {
+    get_apt_package_name_by_command_name $@
 }
 
 get_apt_package_name_by_command_name() {
@@ -1026,12 +1024,13 @@ get_apt_package_name_by_command_name() {
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
-    libtool|libtoolize|glibtool|glibtoolize)
-              echo "libtool" ;;
-    autoreconf|autoconf|automake|autoheader)
-              echo "automake" ;;
-    autopoint) echo "gettext" ;;
-        *) echo "$1"
+    sphinx-build) echo "python3-sphinx" ;;
+    glibtool|libtoolize|glibtoolize)
+                echo "libtool"  ;;
+    autoreconf) echo "autoconf" ;;
+    autoheader) echo "automake" ;;
+    autopoint)  echo "gettext"  ;;
+        *)      echo "$1"
     esac
 }
 
@@ -1044,53 +1043,58 @@ get_brew_package_name_by_command_name() {
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
-    libtool|libtoolize|glibtool|glibtoolize)
-              echo "libtool" ;;
-    autoreconf|autoconf|automake|autoheader)
-              echo "automake" ;;
-    autopoint) echo "gettext" ;;
-        *) echo "$1"
+    sphinx-build) echo "sphinx-doc" ;;
+    glibtool|libtoolize|glibtoolize)
+                echo "libtool"  ;;
+    autoreconf) echo "autoconf" ;;
+    autoheader) echo "automake" ;;
+    autopoint)  echo "gettext"  ;;
+        *)      echo "$1"
+    esac
+}
+
+get_pip3_package_name_by_command_name() {
+    get_pip_package_name_by_command_name $@
+}
+
+get_pip_package_name_by_command_name() {
+    case $1 in
+        sphinx-build) echo "sphinx" ;;
     esac
 }
 
 # }}}
 ##############################################################################
-# {{{ __available_package_manager_list
+# {{{ __get_available_package_manager_list
 
-__available_package_manager_list() {
-    if exists command brew ; then
-        echo brew
+__add_available_package_manager() {
+    if exists command "$1" ; then
+        if [ -z "$AVAILABLE_PACKAGE_MANAGER_LIST" ] ; then
+            AVAILABLE_PACKAGE_MANAGER_LIST="$2"
+        else
+            AVAILABLE_PACKAGE_MANAGER_LIST="$AVAILABLE_PACKAGE_MANAGER_LIST $2"
+        fi
     fi
+}
 
-    [ "$NATIVE_OS_TYPE" = 'darwin' ] && return
-
-    if exists command apt ; then
-        echo apt
-    elif exists command apt-get ; then
-        echo apt-get
-    elif exists command dnf ; then
-        echo dnf
-    elif exists command yum ; then
-        echo yum
-    elif exists command zypper ; then
-        echo zypper
-    elif exists command apk ; then
-        echo apk
-    elif exists command xbps-install ; then
-        echo xbps
-    elif exists command emerge ; then
-        echo emerge
-    elif exists command pacman ; then
-        echo pacman
-    elif exists command choco ; then
-        echo choco
-    elif exists command pkg ; then
-        echo pkg
-    elif exists command pkgin ; then
-        echo pkgin
-    elif exists command pkg_add ; then
-        echo pkg_add
+__get_available_package_manager_list() {
+    if [ -z "$AVAILABLE_PACKAGE_MANAGER_LIST" ] ; then
+        for item in brew pip3 pip apt-get apt dnf yum zypper apk xbps-install emerge pacman choco pkg pkgin pkg_add
+        do
+            case $item in
+                apt)
+                    if apt show apt > /dev/null 2>&1 ; then
+                        __add_available_package_manager apt apt
+                    fi
+                    ;;
+                xbps-install)
+                    __add_available_package_manager xbps-install xbps
+                    ;;
+                *)  __add_available_package_manager "$item" "$item"
+            esac
+        done
     fi
+    echo "$AVAILABLE_PACKAGE_MANAGER_LIST"
 }
 
 # }}}
@@ -1101,11 +1105,13 @@ __available_package_manager_list() {
 # $2 package name
 __install_package_via_package_manager() {
     case $1 in
+        pip3)    run pip3 install -U "$2" ;;
+        pip)     run pip  install -U "$2" ;;
         pkg)     run $sudo pkg install -y "$2" ;;
         pkgin)   run $sudo pkgin -y install "$2" ;;
         pkg_add) run $sudo pkg_add "$2" ;;
         brew)    run brew install "$2" ;;
-        apt)     run $sudo apt -y install "$2" ;;
+        apt)     run $sudo apt     -y install "$2" ;;
         apt-get) run $sudo apt-get -y install "$2" ;;
         dnf)
             # Error: GPG check FAILED
@@ -1128,9 +1134,9 @@ __install_package_via_package_manager() {
 # $1 package manager name
 # $2 command name
 __install_command_via_package_manager() {
-    PACKAGE_NAME="$(eval get_$1_package_name_by_command_name $2)"
+    PACKAGE_NAME="$(eval get_$(echo "$1" | tr - _)_package_name_by_command_name $2)"
     if [ -z "$PACKAGE_NAME" ] ; then
-        warn "can not found a package in $1 repo, who contains the $2 command."
+        warn "can not found a package in $1 repo, which contains the $2 command."
         return 1
     else
         print "🔥  ${COLOR_YELLOW}required command${COLOR_OFF} ${COLOR_GREEN}$(shiftn 1 $@)${COLOR_OFF}${COLOR_YELLOW}, but${COLOR_OFF} ${COLOR_GREEN}$2${COLOR_OFF} ${COLOR_YELLOW}command not found, try to install it via${COLOR_OFF} ${COLOR_GREEN}$1${COLOR_OFF}\n"
@@ -1151,7 +1157,7 @@ __install_command_via_available_package_manager() {
         return 0
     else
         if [ -z "$AVAILABLE_PACKAGE_MANAGER_LIST" ] ; then
-            AVAILABLE_PACKAGE_MANAGER_LIST=$(__available_package_manager_list)
+            AVAILABLE_PACKAGE_MANAGER_LIST=$(__get_available_package_manager_list)
             if [ -z "$AVAILABLE_PACKAGE_MANAGER_LIST" ] ; then
                 warn "no package manager found."
                 return 1
@@ -1375,6 +1381,18 @@ __handle_required_dependencies() {
 # {{{ __printf_dependencies
 
 # examples:
+# __printf_dependency required command pkg-config ge 0.18
+# __printf_dependency required command python     ge 3.5
+# __printf_dependency required python  libxml2    ge 2.19
+#
+# __printf_dependency optional command pkg-config ge 0.18
+# __printf_dependency optional command python     ge 3.5
+# __printf_dependency optional python  libxml2    ge 2.19
+__printf_dependency() {
+    printf "%-7s %-15s %-2s %-10s %-10s %s\n" "$1" "$2" "$3" "$4" "$5" "$6"
+}
+
+# examples:
 # printf_dependency required command pkg-config ge 0.18
 # printf_dependency required command python     ge 3.5
 # printf_dependency required python  libxml2    ge 2.19
@@ -1389,22 +1407,22 @@ printf_dependency() {
                 *:*)
                     if [ "$1" = 'required' ] ; then
                         REQUIRED_ITEM="$(eval echo \$REQUIRED_ITEM_$REQUIRED_ITEM_INDEX)"
-                        printf "%-7s %-11s %-10s %-10s %s\n" "$2" "$REQUIRED_ITEM" "$4 $5" "$(version_of_command $REQUIRED_ITEM)" "$(command -v $REQUIRED_ITEM)"
+                        __printf_dependency "$2" "$REQUIRED_ITEM" "$4" "$5" "$(version_of_command $REQUIRED_ITEM)" "$(command -v $REQUIRED_ITEM)"
                     else
                         for item in $(echo "$3" | tr ':' ' ')
                         do
-                            printf "%-7s %-11s %-10s %-10s %s\n" "$2" "$item" "$4 $5" "$(version_of_command $item)" "$(command -v $item)"
+                            __printf_dependency "$2" "$item" "$4" "$5" "$(version_of_command $item)" "$(command -v $item)"
                         done
                     fi
                     ;;
-                *)  printf "%-7s %-11s %-10s %-10s %s\n" "$2" "$3" "$4 $5" "$(version_of_command $3)" "$(command -v $3)"
+                *)  __printf_dependency "$2" "$3" "$4" "$5" "$(version_of_command $3)" "$(command -v $3)"
             esac
             ;;
         python)
-            printf "%-7s %-11s %-10s %-10s %s\n" "$2" "$3" "$4 $5" "$(version_of_python_module $3)" "$(location_of_python_module $3)"
+            __printf_dependency "$2" "$3" "$4" "$5" "$(version_of_python_module $3)" "$(location_of_python_module $3)"
             ;;
         perl)
-            printf "%-7s %-11s %-10s %-10s %s\n" "$2" "$3" "$4 $5" "" ""
+            __printf_dependency "$2" "$3" "$4" "$5" "" ""
             ;;
         *)  die "$2: type not support."
     esac
@@ -1415,7 +1433,7 @@ __printf_required_dependencies() {
     if [ -z "$REQUIRED_DEPENDENCY_LIST" ] ; then
         warn "no required dependencies."
     else
-        printf "%-7s %-11s %-10s %-10s %s\n" TYPE NAME EXPECTED ACTUAL LOCATION
+        __printf_dependency TYPE NAME OP EXPECT ACTUAL LOCATION
         for item in $REQUIRED_DEPENDENCY_LIST
         do
             REQUIRED_ITEM_INDEX=$(expr ${REQUIRED_ITEM_INDEX-0} + 1)
@@ -1430,7 +1448,7 @@ __printf_optional_dependencies() {
     if [ -z "$OPTIONAL_DEPENDENCY_LIST" ] ; then
         warn "no optional dependencies."
     else
-        printf "%-7s %-11s %-10s %-10s %s\n" TYPE NAME EXPECTED ACTUAL LOCATION
+        __printf_dependency TYPE NAME OP EXPECT ACTUAL LOCATION
         for item in $OPTIONAL_DEPENDENCY_LIST
         do
             OPTIONAL_ITEM_INDEX=$(expr ${OPTIONAL_ITEM_INDEX-0} + 1)
