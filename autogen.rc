@@ -1,8 +1,8 @@
 # https://github.com/leleliu008/autogen.sh
 
-required command cc:gcc:clang
-required command pkg-config ge 0.18
-required command python3:python:python3.5:python3.6:python3.7:python3.8:python3.9 ge 3.5
+regist_dependency required command cc:gcc:clang
+regist_dependency required command pkg-config ge 0.18
+regist_dependency required command python3:python:python3.5:python3.6:python3.7:python3.8:python3.9 ge 3.5
 
 gen_config_pre() {
     step "gen config pre"

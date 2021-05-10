@@ -30,9 +30,9 @@ chmod +x autogen.sh
 a typical example of this file looks like as follows:
 
 ```bash
-required command cc
-required command pkg-config ge 0.18
-optional command python3    ge 3.5
+regist_dependency required command cc:gcc:clang
+regist_dependency required command pkg-config   ge 0.18
+regist_dependency required command python3:python:python3.5:python3.6:python3.7:python3.8:python3.9 ge 3.5
 
 gen_config_pre() {
     step "gen config pre"
@@ -52,18 +52,17 @@ gen_config_post() {
 
 [ready-to-use axample](https://raw.githubusercontent.com/leleliu008/autogen.sh/master/autogen.rc)
 
+### the function should be invoked on top of the `autogen.rc`
+```
+regist_dependency <required|optional> <command|python|python2|python3|perl> NAME [OP VERSION]
+```
+
 ### the function can be declared in `autogen.rc`
 |function|overview|
 |-|-|
 |`gen_config_pre(){}`|run before `gen_config(){}`|
 |`gen_config(){}`|run command `autoreconf -ivf`|
 |`gen_config_post(){}`|run after `gen_config(){}`|
-
-### the function should be invoked on top of the `autogen.rc`
-|function|overview|
-|-|-|
-|`required TYPE NAME [OP VERSION]`|declare required `command` / `perl` / `python` modules.|
-|`optional TYPE NAME [OP VERSION]`|declare optional `command` / `perl` / `python` modules.|
 
 ### the function can be invoked in `autogen.rc`
 |function|example|

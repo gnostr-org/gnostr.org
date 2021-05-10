@@ -220,7 +220,7 @@ __fetch_archive_via_tools() {
     AVAILABLE_FETCH_TOOL=$(__get_available_fetch_tool)
 
     if [ -z "$AVAILABLE_FETCH_TOOL" ] ; then
-        __handle_required_item required command curl || return 1
+        handle_dependency required command curl || return 1
         if exists command curl ; then
             AVAILABLE_FETCH_TOOL=curl
         else
@@ -1147,7 +1147,7 @@ __install_command_via_package_manager() {
 # python3    ge 3.5
 # make
 __install_command_via_available_package_manager() {
-    if required_command_exists_and_version_matched $@ ; then
+    if command_exists_and_version_matched $@ ; then
         return 0
     else
         if [ -z "$AVAILABLE_PACKAGE_MANAGER_LIST" ] ; then
@@ -1191,37 +1191,37 @@ __install_command_via_fetch_prebuild_binary() {
 
     case $1 in
         *.zip)
-            __handle_required_item required command unzip &&
+            handle_dependency required command unzip &&
             run unzip "$PREBUILD_BINARY_FILEPATH" -d "$PREBUILD_BINARY_UNPACK_DIR/$2"
             ;;
         *.tar.xz)
-            __handle_required_item required command tar  &&
-            __handle_required_item required command xz   &&
+            handle_dependency required command tar  &&
+            handle_dependency required command xz   &&
             run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_UNPACK_DIR/$2" --strip-components 1
             ;;
         *.tar.gz)
-            __handle_required_item required command tar  &&
-            __handle_required_item required command gzip &&
+            handle_dependency required command tar  &&
+            handle_dependency required command gzip &&
             run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_UNPACK_DIR/$2" --strip-components 1
             ;;
         *.tar.lz)
-            __handle_required_item required command tar  &&
-            __handle_required_item required command lzip &&
+            handle_dependency required command tar  &&
+            handle_dependency required command lzip &&
             run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_UNPACK_DIR/$2" --strip-components 1
             ;;
         *.tar.bz2)
-            __handle_required_item required command tar   &&
-            __handle_required_item required command bzip2 &&
+            handle_dependency required command tar   &&
+            handle_dependency required command bzip2 &&
             run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_UNPACK_DIR/$2" --strip-components 1
             ;;
         *.tgz)
-            __handle_required_item required command tar  &&
-            __handle_required_item required command gzip &&
+            handle_dependency required command tar  &&
+            handle_dependency required command gzip &&
             run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_UNPACK_DIR/$2" --strip-components 1
             ;;
         *.txz)
-            __handle_required_item required command tar &&
-            __handle_required_item required command xz  &&
+            handle_dependency required command tar &&
+            handle_dependency required command xz  &&
             run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_UNPACK_DIR/$2" --strip-components 1
     esac
 
@@ -1263,7 +1263,7 @@ __get_prebuild_binary_fetch_url_by_command_name() {
 # python3    ge 3.5
 # make
 __install_command() {
-    if required_command_exists_and_version_matched $@ ; then
+    if command_exists_and_version_matched $@ ; then
         return 0
     else
         unset PREBUILD_BINARY_FETCH_URL
@@ -1280,7 +1280,7 @@ __install_command() {
 # pkg-config ge 0.18
 # python3    ge 3.5
 # make
-required_command_exists_and_version_matched() {
+command_exists_and_version_matched() {
     if exists command "$1" ; then
         if [ "$NATIVE_OS_TYPE" = 'cygwin' ] ; then
             case $(command -v "$1") in
@@ -1296,12 +1296,20 @@ required_command_exists_and_version_matched() {
 }
 
 # examples:
-# required command pkg-config ge 0.18
-# required command python3    ge 3.5
-# optional python3 libxml2    ge 2.8
-# optional python3 libxml2
-__handle_required_item() {
+# handle_dependency required command pkg-config ge 0.18
+# handle_dependency required command python     ge 3.5
+# handle_dependency required python  libxml2    ge 2.19
+#
+# handle_dependency optional command pkg-config ge 0.18
+# handle_dependency optional command python     ge 3.5
+# handle_dependency optional python  libxml2    ge 2.19
+handle_dependency() {
+    if [ "$1" != 'required' ] ; then
+        return 0
+    fi
+
     shift
+
     case $1 in
         command)
             shift
@@ -1309,7 +1317,7 @@ __handle_required_item() {
                 *:*)
                     for item in $(echo "$1" | tr ':' ' ')
                     do
-                        if required_command_exists_and_version_matched "$item" $2 $3 ; then
+                        if command_exists_and_version_matched "$item" $2 $3 ; then
                             eval "REQUIRED_ITEM_$REQUIRED_ITEM_INDEX=$item"
                             return 0
                         fi
@@ -1351,13 +1359,30 @@ __handle_required_item() {
     esac
 }
 
+__handle_required_dependencies() {
+    step "handle required dependencies"
+
+    for item in $REQUIRED_DEPENDENCY_LIST
+    do
+        REQUIRED_ITEM_INDEX=$(expr ${REQUIRED_ITEM_INDEX-0} + 1)
+        handle_dependency $(__decode_dependency "$item") || return 1
+    done
+    unset REQUIRED_ITEM_INDEX
+}
+
+# }}}
+##############################################################################
+# {{{ __printf_dependencies
+
 # examples:
-#    $1      $2      $3       $4  $5
-# required command pkg-config ge 0.18
-# required command python3    ge 3.5
-# optional python3 libxml2    ge 2.8
-# optional python3 libxml2
-__print_required_or_optional_item() {
+# printf_dependency required command pkg-config ge 0.18
+# printf_dependency required command python     ge 3.5
+# printf_dependency required python  libxml2    ge 2.19
+#
+# printf_dependency optional command pkg-config ge 0.18
+# printf_dependency optional command python     ge 3.5
+# printf_dependency optional python  libxml2    ge 2.19
+printf_dependency() {
     case $2 in
         command)
             case $3 in
@@ -1385,6 +1410,40 @@ __print_required_or_optional_item() {
     esac
 }
 
+__printf_required_dependencies() {
+    step "printf required dependencies"
+    if [ -z "$REQUIRED_DEPENDENCY_LIST" ] ; then
+        warn "no required dependencies."
+    else
+        printf "%-7s %-11s %-10s %-10s %s\n" TYPE NAME EXPECTED ACTUAL LOCATION
+        for item in $REQUIRED_DEPENDENCY_LIST
+        do
+            REQUIRED_ITEM_INDEX=$(expr ${REQUIRED_ITEM_INDEX-0} + 1)
+            printf_dependency $(__decode_dependency "$item")
+        done
+        unset REQUIRED_ITEM_INDEX
+    fi
+}
+
+__printf_optional_dependencies() {
+    step "printf optional dependencies"
+    if [ -z "$OPTIONAL_DEPENDENCY_LIST" ] ; then
+        warn "no optional dependencies."
+    else
+        printf "%-7s %-11s %-10s %-10s %s\n" TYPE NAME EXPECTED ACTUAL LOCATION
+        for item in $OPTIONAL_DEPENDENCY_LIST
+        do
+            OPTIONAL_ITEM_INDEX=$(expr ${OPTIONAL_ITEM_INDEX-0} + 1)
+            printf_dependency $(__decode_dependency "$item")
+        done
+        unset OPTIONAL_ITEM_INDEX
+    fi
+}
+
+# }}}
+##############################################################################
+# {{{ location_of_python_module
+
 location_of_python_module() {
     PIP_COMMAND=$(command -v pip3 || command -v pip)
     if [ -z "$PIP_COMMAND" ] ; then
@@ -1394,7 +1453,11 @@ location_of_python_module() {
     fi
 }
 
-__encode() {
+# }}}
+##############################################################################
+# {{{ encode/decode dependency
+
+__encode_dependency() {
     if [ $# -eq 0 ] ; then
         tr ' ' '|'
     else
@@ -1402,7 +1465,7 @@ __encode() {
     fi
 }
 
-__decode() {
+__decode_dependency() {
     if [ $# -eq 0 ] ; then
         tr '|' ' '
     else
@@ -1410,93 +1473,57 @@ __decode() {
     fi
 }
 
-# declare required command or python/perl module
+# }}}
+##############################################################################
+# {{{ regist dependency
+
+# regist dependency
 #
-# $1 type=command|python|python2|python3|perl
-#    type can be omitted when it is command
-# $2 name
-# $3=gt|lt|ge|le|eq|ne
-# $4 version
+# required this is a required dependency
+# optional this is a optional dependency
+#
+# command  this dependency is a command
+# python   this dependency is a python  module
+# python2  this dependency is a python2 module
+# python3  this dependency is a python3 module
+# perl     this dependency is a perl module
+#
+# gt VERSION
+# ge VERSION
+# lt VERSION
+# le VERSION
+# eq VERSION
+# ne VERSION
 #
 # examples:
-# required command pkg-config ge 0.18
-# required command python     ge 3.5
-# required python  libxml2    ge 2.19
-required() {
-    if [ $# -eq 2 ] || [ $# -eq 4 ] ; then
-        if [ -z "$REQUIRED" ] ; then
-            REQUIRED="$(__encode "required $*")"
-        else
-            REQUIRED="$REQUIRED $(__encode "required $*")"
-        fi
-    else
-        die "required $@ : required function accept 2 or 4 argument."
-    fi
-}
-
-# declare optional command or python/perl module
+# regist_dependency required command pkg-config ge 0.18
+# regist_dependency required command python     ge 3.5
+# regist_dependency required python  libxml2    ge 2.19
 #
-# $1 type=command|python|python2|python3|perl
-#    type can be omitted when it is command
-# $2 name
-# $3=gt|lt|ge|le|eq|ne
-# $4 version
-#
-# examples:
-# optional command pkg-config ge 0.18
-# optional command python     ge 3.5
-# optional python  libxml2    ge 2.19
-optional() {
-    if [ $# -eq 2 ] || [ $# -eq 4 ] ; then
-        if [ -z "$OPTIONAL" ] ; then
-            OPTIONAL=$(__encode "optional $*")
-        else
-            OPTIONAL="$OPTIONAL $(__encode "optional $*")"
-        fi
-    else
-        die "optional $@ : optional function accept 2 or 4 argument."
-    fi
-}
-
-__handle_required_dependencies() {
-    step "handle required dependencies"
-
-    for item in $REQUIRED
+# regist_dependency optional command pkg-config ge 0.18
+# regist_dependency optional command python     ge 3.5
+# regist_dependency optional python  libxml2    ge 2.19
+regist_dependency() {
+    for item in $@
     do
-        REQUIRED_ITEM_INDEX=$(expr ${REQUIRED_ITEM_INDEX-0} + 1)
-        __handle_required_item $(__decode "$item") || return 1
+        case $item in
+            required)
+                if [ -z "$REQUIRED_DEPENDENCY_LIST" ] ; then
+                    REQUIRED_DEPENDENCY_LIST="$(__encode_dependency "$*")"
+                else
+                    REQUIRED_DEPENDENCY_LIST="$REQUIRED_DEPENDENCY_LIST $(__encode_dependency "$*")"
+                fi
+                break
+                ;;
+            optional)
+                if [ -z "$OPTIONAL_DEPENDENCY_LIST" ] ; then
+                    OPTIONAL_DEPENDENCY_LIST=$(__encode_dependency "$*")
+                else
+                    OPTIONAL_DEPENDENCY_LIST="$OPTIONAL_DEPENDENCY_LIST $(__encode_dependency "$*")"
+                fi
+                break
+        esac
     done
-    unset REQUIRED_ITEM_INDEX
-}
-
-__printf_required_dependencies() {
-    step "list required dependencies"
-    if [ -z "$REQUIRED" ] ; then
-        warn "no required dependencies."
-    else
-        printf "%-7s %-11s %-10s %-10s %s\n" TYPE NAME EXPECTED ACTUAL LOCATION
-        for item in $REQUIRED
-        do
-            REQUIRED_ITEM_INDEX=$(expr ${REQUIRED_ITEM_INDEX-0} + 1)
-            __print_required_or_optional_item $(__decode "$item")
-        done
-        unset REQUIRED_ITEM_INDEX
-    fi
-}
-
-__printf_optional_dependencies() {
-    step "list optional dependencies"
-    if [ -z "$OPTIONAL" ] ; then
-        warn "no optional dependencies."
-    else
-        printf "%-7s %-11s %-10s %-10s %s\n" TYPE NAME EXPECTED ACTUAL LOCATION
-        for item in $OPTIONAL
-        do
-            OPTIONAL_ITEM_INDEX=$(expr ${OPTIONAL_ITEM_INDEX-0} + 1)
-            __print_required_or_optional_item $(__decode "$item")
-        done
-        unset OPTIONAL_ITEM_INDEX
-    fi
 }
 
 # }}}
@@ -1554,8 +1581,8 @@ EOF
     unset STEP_NUM
     unset STEP_MESSAGE
 
-    unset REQUIRED
-    unset OPTIONAL
+    unset REQUIRED_DEPENDENCY_LIST
+    unset OPTIONAL_DEPENDENCY_LIST
 
     unset PROJECT_DIR
     unset PROJECT_NAME
@@ -1625,8 +1652,8 @@ EOF
         echo "export AUTOCONF_VERSION=$AUTOCONF_VERSION"
         echo "export AUTOMAKE_VERSION=$AUTOMAKE_VERSION"
         
-        required command autoconf-$AUTOCONF_VERSION ge "$AUTOCONF_VERSION_MREQUIRED"
-        required command automake-$AUTOMAKE_VERSION
+        regist_dependency required command autoconf-$AUTOCONF_VERSION ge "$AUTOCONF_VERSION_MREQUIRED"
+        regist_dependency required command automake-$AUTOMAKE_VERSION
     fi
     
     if [ "$NATIVE_OS_KIND" != 'windows' ] ; then
@@ -1664,14 +1691,14 @@ EOF
         warn "$RC_FILE not exist. skipped."
     fi
 
-    required command autoconf ge "$AUTOCONF_VERSION_MREQUIRED"
-    required command automake
-    required command m4
-    required command perl
-    required command make:gmake:bmake
+    regist_dependency required command autoconf ge "$AUTOCONF_VERSION_MREQUIRED"
+    regist_dependency required command automake
+    regist_dependency required command m4
+    regist_dependency required command perl
+    regist_dependency required command make:gmake:bmake
 
     __is_libtool_used &&
-    required command libtoolize
+    regist_dependency required command libtoolize
 
     __handle_required_dependencies || return 1
     __printf_required_dependencies
