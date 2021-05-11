@@ -290,7 +290,8 @@ map_set() {
     if ! map_contains "$1" "$2" ; then
         unset __MAP_NAME_REF__
         __MAP_NAME_REF__="$(__map_name_ref "$1")"
-        eval "$__MAP_NAME_REF__='$(eval echo \$$__MAP_NAME_REF__) $2'"
+        __MAP_NAME_REF_VALUE__"$(eval echo \$$__MAP_NAME_REF__)"
+        eval "$__MAP_NAME_REF__=\"$__MAP_NAME_REF_VALUE__ $2\""
     fi
     eval "$(__map_key_ref "$1" "$2")=$3"
 }
