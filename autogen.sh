@@ -1,5 +1,4 @@
 #!/bin/sh
-set -x
 
 # https://github.com/leleliu008/autogen.sh
 
@@ -279,7 +278,6 @@ map_contains() {
     do
         [ "$item" = "$2" ] && return 0
     done
-    return 1
 }
 
 # $1 map_name
