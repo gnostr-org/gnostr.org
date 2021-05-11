@@ -40,24 +40,27 @@ die() {
     exit 1
 }
 
-# examples:
-# exists file FILEPATH    --check if file    exists
-# exists command NAME     --check if command exists
-exists() {
-    [ $# -eq 2 ] || warn "exists function accept 2 arguments."
+# check if file exists
+# $1 FILEPATH
+file_exists() {
+    [ -n "$1" ] && [ -e "$1" ]
+}
+
+# check if command exists
+# $1 command name or path
+command_exists() {
     case $1 in
-        file)    [ -n "$2" ] && [ -e "$2" ]  ;;
-        command) command -v "$2" > /dev/null ;;
-        *) warn "$1: not support." ; return 1
+        */*) executable "$1" ;;
+        *)   command -v "$1" > /dev/null
     esac
 }
 
-die_if_file_is_not_exist() {
-    exists file "$1" || die "$1 is not exists."
+executable() {
+    file_exists "$1" && [ -x "$1" ]
 }
 
-executable() {
-    exists file "$1" && [ -x "$1" ]
+die_if_file_is_not_exist() {
+    file_exists "$1" || die "$1 is not exists."
 }
 
 die_if_not_executable() {
@@ -179,12 +182,200 @@ format_unix_timestamp() {
 
 # }}}
 ##############################################################################
+# {{{ md5sum
+
+#examples:
+# printf ss | md5sum
+# cat FILE  | md5sum
+# md5sum < FILE
+md5sum() {
+    if [ $# -eq 0 ] ; then
+        if command -v openssl > /dev/null ; then
+             openssl md5
+        elif command md5sum --version > /dev/null 2>&1 ; then
+             command md5sum | cut -d ' ' -f1
+        else
+            die "please install openssl or GNU CoreUtils."
+        fi
+    else
+        if command -v openssl > /dev/null ; then
+             openssl md5    "$1" | cut -d ' ' -f2
+        elif command md5sum --version > /dev/null 2>&1 ; then
+             command md5sum "$1" | cut -d ' ' -f1
+        else
+            die "please install openssl or GNU CoreUtils."
+        fi
+    fi
+}
+
+# }}}
+##############################################################################
+# {{{ sha256sum
+
+#examples:
+# printf ss | sha256sum
+# cat FILE  | sha256sum
+# sha256sum < FILE
+sha256sum() {
+    if [ $# -eq 0 ] ; then
+        if command -v openssl > /dev/null ; then
+             openssl sha256
+        elif command sha256sum --version > /dev/null 2>&1 ; then
+             command sha256sum | cut -d ' ' -f1
+        else
+            die "please install openssl or GNU CoreUtils."
+        fi
+    else
+        die_if_file_is_not_exist "$1"
+        if command -v openssl > /dev/null ; then
+             openssl sha256    "$1" | cut -d ' ' -f2
+        elif command sha256sum --version > /dev/null 2>&1 ; then
+             command sha256sum "$1" | cut -d ' ' -f1
+        else
+            die "please install openssl or GNU CoreUtils."
+        fi
+    fi
+}
+
+# $1 FILEPATH
+# $2 expect sha256sum
+file_exists_and_sha256sum_matched() {
+    die_if_file_is_not_exist "$1"
+    [ -z "$2" ] && die "please specify expected sha256sum."
+    [ "$(sha256sum $1)" = "$2" ]
+}
+
+# $1 FILEPATH
+# $2 expect sha256sum
+die_if_sha256sum_mismatch() {
+    file_exists_and_sha256sum_matched "$1" "$2" || die "sha256sum mismatch.\n    expect : $2\n    actual : $(sha256sum $1)"
+}
+
+# }}}
+##############################################################################
+# {{{ map
+
+# $1 map_name
+__map_name_ref() {
+    die_if_map_name_is_not_specified "$1"
+    printf "map_%s\n" "$(printf '%s' "$1" | md5sum)"
+}
+
+# $1 map_name
+# $2 key
+__map_key_ref() {
+    die_if_map_name_is_not_specified   "$1"
+    die_if_map_key__is_not_specified   "$2"
+    printf "%s_%s\n" "$(__map_name_ref "$1")" "$(printf '%s' "$2" | md5sum)"
+}
+
+# $1 map_name
+# $2 key
+map_contains() {
+    die_if_map_name_is_not_specified "$1"
+    die_if_map_key__is_not_specified "$2"
+    for item in $(eval echo \$$(__map_name_ref "$1"))
+    do
+        [ "$item" = "$2" ] && return 0
+    done
+    return 1
+}
+
+# $1 map_name
+# $2 key
+# $3 value
+map_set() {
+    die_if_map_name_is_not_specified "$1"
+    die_if_map_key__is_not_specified "$2"
+    if ! map_contains "$1" "$2" ; then
+        unset __MAP_NAME_REF__
+        __MAP_NAME_REF__="$(__map_name_ref "$1")"
+        eval "$__MAP_NAME_REF__='$(eval echo \$$__MAP_NAME_REF__) $2'"
+    fi
+    eval "$(__map_key_ref "$1" "$2")=$3"
+}
+
+# $1 map_name
+# $2 key
+# output: value
+map_get() {
+    die_if_map_name_is_not_specified "$1"
+    die_if_map_key__is_not_specified "$2"
+    eval echo "\$$(__map_key_ref "$1" "$2")"
+}
+
+# $1 map_name
+# $2 key
+# output: value
+map_remove() {
+    die_if_map_name_is_not_specified "$1"
+    die_if_map_key__is_not_specified "$2"
+
+    unset __MAP_NAME_REF__
+    __MAP_NAME_REF__="$(__map_name_ref "$1")"
+
+    unset __MAP_KEYS__
+    __MAP_KEYS__="$(map_keys "$1")"
+
+    unset $__MAP_NAME_REF__
+
+    for item in $__MAP_KEYS__
+    do
+        if [ "$item" = "$2" ] ; then
+            continue
+        else
+            eval "$__MAP_NAME_REF__='$(eval echo \$$__MAP_NAME_REF__) $item'"
+        fi
+    done
+    eval "unset $(__map_key_ref "$1" "$2")"
+}
+
+# $1 map_name
+map_clear() {
+    die_if_map_name_is_not_specified "$1"
+
+    unset __MAP_NAME_REF__
+    __MAP_NAME_REF__="$(__map_name_ref "$1")"
+
+    for item in $(eval echo "\$$__MAP_NAME_REF__")
+    do
+        eval "unset $(__map_key_ref "$1" "$item")"
+    done
+    eval "unset $__MAP_NAME_REF__"
+}
+
+# $1 map_name
+# output: key list
+map_keys() {
+    die_if_map_name_is_not_specified "$1"
+    eval echo "\$$(__map_name_ref "$1")"
+}
+
+# $1 map_name
+# output: key list length
+map_size() {
+    die_if_map_name_is_not_specified "$1"
+    list_length $(map_keys "$1")
+}
+
+# $1 map_name
+die_if_map_name_is_not_specified() {
+    [ -z "$1" ] && die "please specify a map name."
+}
+
+# $1 key
+die_if_map_key__is_not_specified() {
+    [ -z "$1" ] && die "please specify a map key."
+}
+
+# }}}
+##############################################################################
 # {{{ fetch
 
 __get_available_fetch_tool() {
     for item in curl wget http lynx aria2c axel
     do
-        if exists command "$item" ; then
+        if command_exists "$item" ; then
             echo "$item"
             return 0
         fi
@@ -209,7 +400,7 @@ __fetch_via_git() {
 __fetch_archive_via_tools() {
     if [ -f "$FETCH_OUTPUT_PATH" ] ; then
         if [ -n "$FETCH_SHA256" ] ; then
-            if is_sha256sum_match "$FETCH_OUTPUT_PATH" "$FETCH_SHA256" ; then
+            if file_exists_and_sha256sum_matched "$FETCH_OUTPUT_PATH" "$FETCH_SHA256" ; then
                 success "$FETCH_OUTPUT_PATH eval."
                 return 0
             fi
@@ -221,7 +412,7 @@ __fetch_archive_via_tools() {
 
     if [ -z "$AVAILABLE_FETCH_TOOL" ] ; then
         handle_dependency required command curl || return 1
-        if exists command curl ; then
+        if command_exists curl ; then
             AVAILABLE_FETCH_TOOL=curl
         else
             return 1
@@ -312,32 +503,6 @@ fetch() {
         *.git) __fetch_via_git ;;
         *)     __fetch_archive_via_tools ;;
     esac
-}
-
-sha256sum() {
-    die_if_file_is_not_exist "$1"
-
-    if command -v openssl > /dev/null ; then
-        openssl sha256 "$1" | awk '{print $2}'
-    elif command sha256sum --version > /dev/null 2>&1 ; then
-        sha256sum "$1" | awk '{print $1}'
-    else
-        die "please install openssl or GNU CoreUtils."
-    fi
-}
-
-# $1 FILEPATH
-# $2 expect sha256sum
-is_sha256sum_match() {
-    die_if_file_is_not_exist "$1"
-    [ -z "$2" ] && die "please specify sha256sum."
-    [ "$(sha256sum $1)" = "$2" ]
-}
-
-# $1 FILEPATH
-# $2 expect sha256sum
-die_if_sha256sum_mismatch() {
-    is_sha256sum_match "$1" "$2" || die "sha256sum mismatch.\n    expect : $2\n    actual : $(sha256sum $1)"
 }
 
 # }}}
@@ -740,17 +905,25 @@ version_match() {
 # le  less than or equal
 #
 # examples:
-# command_version_match automake eq 1.16.0
-# command_version_match automake lt 1.16.0
-# command_version_match automake gt 1.16.0
-# command_version_match automake le 1.16.0
-# command_version_match automake ge 1.16.0
-command_version_match() {
-    case $1 in
-        /*) executable     "$1" || return 1 ;;
-        *)  exists command "$1" || return 1 ;;
-    esac
-    version_match "$(version_of_command "$1")" "$2" "$3"
+# command_exists_and_version_matched automake eq 1.16.0
+# command_exists_and_version_matched automake lt 1.16.0
+# command_exists_and_version_matched automake gt 1.16.0
+# command_exists_and_version_matched automake le 1.16.0
+# command_exists_and_version_matched automake ge 1.16.0
+# command_exists_and_version_matched automake
+command_exists_and_version_matched() {
+    if command_exists "$1" ; then
+        if [ "$NATIVE_OS_TYPE" = 'cygwin' ] ; then
+            case $(command -v "$1") in
+                /cygdrive/*) return 1
+            esac
+        fi
+        if [ $# -eq 3 ] ; then
+            version_match "$(version_of_command "$1")" "$2" "$3"
+        fi
+    else
+        return 1
+    fi
 }
 
 # }}}
@@ -1068,7 +1241,7 @@ get_pip_package_name_by_command_name() {
 # {{{ __get_available_package_manager_list
 
 __add_available_package_manager() {
-    if exists command "$1" ; then
+    if command_exists "$1" ; then
         if [ -z "$AVAILABLE_PACKAGE_MANAGER_LIST" ] ; then
             AVAILABLE_PACKAGE_MANAGER_LIST="$2"
         else
@@ -1257,7 +1430,7 @@ __get_prebuild_binary_fetch_url_by_command_name() {
                     fi
                     ;;
                 darwin)
-                    if ! exists command brew ; then
+                    if ! command_exists brew ; then
                         echo "https://github.com/Kitware/CMake/releases/download/v3.20.2/cmake-3.20.2-macos-universal.tar.gz"
                     fi
             esac
@@ -1279,25 +1452,6 @@ __install_command() {
         else
             __install_command_via_fetch_prebuild_binary "$PREBUILD_BINARY_FETCH_URL" $@
         fi
-    fi
-}
-
-# examples:
-# pkg-config ge 0.18
-# python3    ge 3.5
-# make
-command_exists_and_version_matched() {
-    if exists command "$1" ; then
-        if [ "$NATIVE_OS_TYPE" = 'cygwin' ] ; then
-            case $(command -v "$1") in
-                /cygdrive/*) return 1
-            esac
-        fi
-        if [ $# -eq 3 ] ; then
-            command_version_match $@
-        fi
-    else
-        return 1
     fi
 }
 
@@ -1324,14 +1478,14 @@ handle_dependency() {
                     for item in $(echo "$1" | tr ':' ' ')
                     do
                         if command_exists_and_version_matched "$item" $2 $3 ; then
-                            eval "REQUIRED_ITEM_$REQUIRED_ITEM_INDEX=$item"
+                            map_set "$MAP_REQUIRED_DEPENDENCIES" "$1" "$item"
                             return 0
                         fi
                     done
                     for item in $(echo "$1" | tr ':' ' ')
                     do
                         if __install_command "$item" $2 $3 ; then
-                            eval "REQUIRED_ITEM_$REQUIRED_ITEM_INDEX=$item"
+                            map_set "$MAP_REQUIRED_DEPENDENCIES" "$1" "$item"
                             return 0
                         fi
                     done
@@ -1341,15 +1495,15 @@ handle_dependency() {
             ;;
         python|python3)
             shift
-            if exists command python3 ; then
+            if command_exists python3 ; then
                 if ! python3 -c "import $1" 2> /dev/null ; then
-                    if exists command pip3 ; then
+                    if command_exists pip3 ; then
                         pip3 install -U "$1" || return 1
                     fi
                 fi
-            elif exists command python ; then
+            elif command_exists python ; then
                 if ! python -c "import $1" 2> /dev/null ; then
-                    if exists command pip ; then
+                    if command_exists pip ; then
                         pip install -U "$1" || return 1
                     fi
                 fi
@@ -1370,10 +1524,8 @@ __handle_required_dependencies() {
 
     for item in $REQUIRED_DEPENDENCY_LIST
     do
-        REQUIRED_ITEM_INDEX=$(expr ${REQUIRED_ITEM_INDEX-0} + 1)
         handle_dependency $(__decode_dependency "$item") || return 1
     done
-    unset REQUIRED_ITEM_INDEX
 }
 
 # }}}
@@ -1406,7 +1558,7 @@ printf_dependency() {
             case $3 in
                 *:*)
                     if [ "$1" = 'required' ] ; then
-                        REQUIRED_ITEM="$(eval echo \$REQUIRED_ITEM_$REQUIRED_ITEM_INDEX)"
+                        REQUIRED_ITEM="$(map_get "MAP_REQUIRED_DEPENDENCIES" "$3")"
                         __printf_dependency "$2" "$REQUIRED_ITEM" "$4" "$5" "$(version_of_command $REQUIRED_ITEM)" "$(command -v $REQUIRED_ITEM)"
                     else
                         for item in $(echo "$3" | tr ':' ' ')
@@ -1436,10 +1588,8 @@ __printf_required_dependencies() {
         __printf_dependency TYPE NAME OP EXPECT ACTUAL LOCATION
         for item in $REQUIRED_DEPENDENCY_LIST
         do
-            REQUIRED_ITEM_INDEX=$(expr ${REQUIRED_ITEM_INDEX-0} + 1)
             printf_dependency $(__decode_dependency "$item")
         done
-        unset REQUIRED_ITEM_INDEX
     fi
 }
 
@@ -1451,10 +1601,8 @@ __printf_optional_dependencies() {
         __printf_dependency TYPE NAME OP EXPECT ACTUAL LOCATION
         for item in $OPTIONAL_DEPENDENCY_LIST
         do
-            OPTIONAL_ITEM_INDEX=$(expr ${OPTIONAL_ITEM_INDEX-0} + 1)
             printf_dependency $(__decode_dependency "$item")
         done
-        unset OPTIONAL_ITEM_INDEX
     fi
 }
 
@@ -1615,8 +1763,8 @@ EOF
 
     unset AUTOCONF_VERSION_MREQUIRED
 
-    unset REQUIRED_ITEM_INDEX
-    unset OPTIONAL_ITEM_INDEX
+    unset MAP_REQUIRED_DEPENDENCIES
+    MAP_REQUIRED_DEPENDENCIES='MAP_REQUIRED_DEPENDENCIES'
 
     unset RC_FILE
 
@@ -1633,7 +1781,7 @@ EOF
                         if [ -z "$RC_FILE" ] ; then
                             die "--rc-file=FILE FILE must not empty."
                         else
-                            if ! exists file "$RC_FILE" ; then
+                            if ! file_exists "$RC_FILE" ; then
                                 die "$item: file not exists."
                             fi
                         fi
@@ -1699,7 +1847,7 @@ EOF
     AUTOCONF_VERSION_MREQUIRED=$(grep 'AC_PREREQ\s*(\[.*\])\s*$' configure.ac | sed 's/AC_PREREQ\s*(\[\(.*\)\])/\1/')
 
     step "load $RC_FILE"
-    if exists file "$RC_FILE" ; then
+    if file_exists "$RC_FILE" ; then
         if . "$RC_FILE" ; then
             success "$RC_FILE loaded successfully."
         else
