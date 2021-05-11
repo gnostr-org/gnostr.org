@@ -191,10 +191,10 @@ format_unix_timestamp() {
 # md5sum < FILE
 md5sum() {
     if [ $# -eq 0 ] ; then
-        if command -v openssl > /dev/null ; then
-             openssl md5
-        elif command md5sum --version > /dev/null 2>&1 ; then
+        if   command md5sum --version > /dev/null 2>&1 ; then
              command md5sum | cut -d ' ' -f1
+        elif command -v openssl > /dev/null ; then
+             openssl md5 | rev | cut -d ' ' -f1 | rev
         else
             die "please install openssl or GNU CoreUtils."
         fi
@@ -219,10 +219,10 @@ md5sum() {
 # sha256sum < FILE
 sha256sum() {
     if [ $# -eq 0 ] ; then
-        if command -v openssl > /dev/null ; then
-             openssl sha256
-        elif command sha256sum --version > /dev/null 2>&1 ; then
+        if   command sha256sum --version > /dev/null 2>&1 ; then
              command sha256sum | cut -d ' ' -f1
+        elif command -v openssl > /dev/null ; then
+             openssl sha256 | rev | cut -d ' ' -f1 | rev
         else
             die "please install openssl or GNU CoreUtils."
         fi
