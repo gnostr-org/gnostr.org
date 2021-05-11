@@ -1,4 +1,5 @@
 #!/bin/sh
+set -x
 
 # https://github.com/leleliu008/autogen.sh
 
