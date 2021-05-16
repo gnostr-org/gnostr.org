@@ -2077,7 +2077,7 @@ EOF
     regist_dependency required command perl
     regist_dependency required command autoconf ge "$AUTOCONF_VERSION_MREQUIRED"
     regist_dependency required command automake
-    regist_dependency required command gmake:make:bmake
+    regist_dependency required command make:gmake:bmake
 
     step "load $RC_FILE"
     if file_exists "$RC_FILE" ; then
