@@ -2033,19 +2033,6 @@ EOF
     echo "NATIVE_OS_VERS  = $NATIVE_OS_VERS"
     echo "NATIVE_OS_ARCH  = $NATIVE_OS_ARCH"
     echo "NATIVE_OS_LIBC  = $NATIVE_OS_LIBC"
-
-    # https://www.openbsd.org/faq/ports/specialtopics.html
-    if [ "$NATIVE_OS_KIND" = 'openbsd' ] ; then
-        [ -z "$AUTOCONF_VERSION" ] || export AUTOCONF_VERSION='2.69'
-        [ -z "$AUTOMAKE_VERSION" ] || export AUTOMAKE_VERSION='1.16'
-        
-        echo
-        echo "export AUTOCONF_VERSION=$AUTOCONF_VERSION"
-        echo "export AUTOMAKE_VERSION=$AUTOMAKE_VERSION"
-        
-        regist_dependency required command autoconf-$AUTOCONF_VERSION ge "$AUTOCONF_VERSION_MREQUIRED"
-        regist_dependency required command automake-$AUTOMAKE_VERSION
-    fi
     
     if [ "$NATIVE_OS_KIND" != 'windows' ] ; then
         [ "$(whoami)" = root ] || sudo=sudo
@@ -2075,6 +2062,20 @@ EOF
     regist_dependency required command grep
     regist_dependency required command m4
     regist_dependency required command perl
+
+    # https://www.openbsd.org/faq/ports/specialtopics.html
+    if [ "$NATIVE_OS_KIND" = 'openbsd' ] ; then
+        [ -z "$AUTOCONF_VERSION" ] || export AUTOCONF_VERSION='2.69'
+        [ -z "$AUTOMAKE_VERSION" ] || export AUTOMAKE_VERSION='1.16'
+
+        echo
+        echo "export AUTOCONF_VERSION=$AUTOCONF_VERSION"
+        echo "export AUTOMAKE_VERSION=$AUTOMAKE_VERSION"
+
+        regist_dependency required command autoconf-$AUTOCONF_VERSION ge "$AUTOCONF_VERSION_MREQUIRED"
+        regist_dependency required command automake-$AUTOMAKE_VERSION
+    fi
+
     regist_dependency required command autoconf ge "$AUTOCONF_VERSION_MREQUIRED"
     regist_dependency required command automake
     regist_dependency required command make:gmake:bmake
