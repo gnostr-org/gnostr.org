@@ -1030,14 +1030,15 @@ get_pkg_add_package_name_by_command_name() {
     pip3|pip) echo 'py3-pip' ;;
     libtool|libtoolize|glibtool|glibtoolize)
               echo "libtool" ;;
-    autoreconf|autoconf)
+    autoreconf|autoconf|autoreconf-2.69|autoconf-2.69)
               echo "autoconf-2.69p3" ;;
-    autoreconf-2.69|autoconf-2.69)
-              echo "autoconf-2.69p3" ;;
-    automake|autoheader)
-              echo "automake-1.16.2" ;;
-    automake-1.16|autoheader-1.16)
-              echo "automake-1.16.2" ;;
+    automake|autoheader|automake-1.16|autoheader-1.16)
+            if [ "$NATIVE_OS_VERS" = '6.9' ] ; then
+                echo "automake-1.16.3"
+            else
+                echo "automake-1.16.2"
+            fi
+            ;;
     autopoint) echo "gettext" ;;
     pkg-config) echo "pkgconf" ;;
         *) echo "$1"
