@@ -955,7 +955,7 @@ package_exists_in_repo_and_version_matched() {
     if package_exists_in_repo "$1" "$2" ; then
         if [ $# -eq 4 ] ; then
             case $1 in
-                apt|yum) version_match "$(version_of_package "$1" "$2")" "$3" "$4" ;;
+                apt|yum|dnf) version_match "$(version_of_package "$1" "$2")" "$3" "$4" ;;
                 *)       return 0 ;;
             esac
         fi
@@ -972,6 +972,7 @@ package_exists_in_repo() {
     case $1 in
         apt) apt show "$2" > /dev/null 2>&1 ;;
         yum) yum info "$2" > /dev/null 2>&1 ;;
+        dnf) dnf info "$2" > /dev/null 2>&1 ;;
     esac
 }
 
@@ -981,8 +982,9 @@ package_exists_in_repo() {
 # version_of_package apt automake
 version_of_package() {
     case $1 in
-        apt) apt show "$2" 2> /dev/null | grep 'Version: '     | head -n 1 | cut -d ' ' -f2 | cut -d- -f1 ;;
-        yum) yum info "$2" 2> /dev/null | grep 'Version     :' | head -n 1 | cut -d : -f2 | sed 's/^[[:space:]]//' ;;
+        apt) apt show "$2" 2> /dev/null | grep 'Version: '      | head -n 1 | cut -d ' ' -f2 | cut -d- -f1 ;;
+        yum) yum info "$2" 2> /dev/null | grep 'Version     :'  | head -n 1 | cut -d : -f2 | sed 's/^[[:space:]]//' ;;
+        dnf) dnf info "$2" 2> /dev/null | grep 'Version      :' | head -n 1 | cut -d : -f2 | sed 's/^[[:space:]]//' ;;
     esac
 }
 
