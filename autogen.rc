@@ -2,13 +2,13 @@
 
 regist_dependency required command cc:gcc:clang
 regist_dependency required command pkg-config ge 0.18
-regist_dependency required command python3:python:python3.5:python3.6:python3.7:python3.8:python3.9 ge 3.5
+regist_dependency required command python3:python:python3.9:python3.8:python3.7:python3.6:python3.5 ge 3.5
 
 gen_config_pre() {
     step "gen config pre"
     # https://lwn.net/Articles/839395/
     # configure.ac:242: warning: The macro `AC_PROG_CC_C99' is obsolete.
-    if command_exists_and_version_matched autoconf ge '2.70' ; then
+    if command_exists_in_filesystem_and_version_matched autoconf ge '2.70' ; then
        sed_in_place '/AC_PROG_CC_C99/d' configure.ac m4/ax_prog_cc_for_build.m4
     fi
 }
@@ -44,7 +44,7 @@ __die_if_no_c_compiler() {
     [ -z "$HOST_CC" ] && {
         for cc in cc gcc clang
         do
-            if command_exists "$cc" ; then
+            if command_exists_in_filesystem "$cc" ; then
                 HOST_CC="$cc"
                 break
             fi
@@ -64,7 +64,7 @@ __check_if_c_compiler_works() {
     
     echo '#include<string.h>\nint main() { return 0; }' > test.c
 
-    if command_exists bat ; then
+    if command_exists_in_filesystem bat ; then
         run bat --style=plain test.c
     else
         run cat test.c

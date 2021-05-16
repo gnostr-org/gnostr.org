@@ -46,9 +46,9 @@ file_exists() {
     [ -n "$1" ] && [ -e "$1" ]
 }
 
-# check if command exists
+# check if command exists in filesystem
 # $1 command name or path
-command_exists() {
+command_exists_in_filesystem() {
     case $1 in
         */*) executable "$1" ;;
         *)   command -v "$1" > /dev/null
@@ -190,17 +190,17 @@ format_unix_timestamp() {
 # md5sum < FILE
 md5sum() {
     if [ $# -eq 0 ] ; then
-        if   command md5sum --version > /dev/null 2>&1 ; then
+        if echo | command md5sum > /dev/null 2>&1 ; then
              command md5sum | cut -d ' ' -f1
         elif command -v openssl > /dev/null ; then
              openssl md5 | rev | cut -d ' ' -f1 | rev
         else
-            die "please install openssl or GNU CoreUtils."
+            return 1
         fi
     else
         if command -v openssl > /dev/null ; then
              openssl md5    "$1" | cut -d ' ' -f2
-        elif command md5sum --version > /dev/null 2>&1 ; then
+        elif echo | command md5sum > /dev/null 2>&1 ; then
              command md5sum "$1" | cut -d ' ' -f1
         else
             die "please install openssl or GNU CoreUtils."
@@ -218,18 +218,18 @@ md5sum() {
 # sha256sum < FILE
 sha256sum() {
     if [ $# -eq 0 ] ; then
-        if   command sha256sum --version > /dev/null 2>&1 ; then
+        if echo | command sha256sum > /dev/null 2>&1 ; then
              command sha256sum | cut -d ' ' -f1
         elif command -v openssl > /dev/null ; then
              openssl sha256 | rev | cut -d ' ' -f1 | rev
         else
-            die "please install openssl or GNU CoreUtils."
+            return 1
         fi
     else
         die_if_file_is_not_exist "$1"
         if command -v openssl > /dev/null ; then
              openssl sha256    "$1" | cut -d ' ' -f2
-        elif command sha256sum --version > /dev/null 2>&1 ; then
+        elif echo | command sha256sum > /dev/null 2>&1 ; then
              command sha256sum "$1" | cut -d ' ' -f1
         else
             die "please install openssl or GNU CoreUtils."
@@ -373,10 +373,10 @@ die_if_map_key__is_not_specified() {
 # {{{ fetch
 
 __get_available_fetch_tool() {
-    for item in curl wget http lynx aria2c axel
+    for tool in curl wget http lynx aria2c axel
     do
-        if command_exists "$item" ; then
-            echo "$item"
+        if command_exists_in_filesystem "$tool" ; then
+            echo "$tool"
             return 0
         fi
     done
@@ -412,7 +412,7 @@ __fetch_archive_via_tools() {
 
     if [ -z "$AVAILABLE_FETCH_TOOL" ] ; then
         handle_dependency required command curl || return 1
-        if command_exists curl ; then
+        if command_exists_in_filesystem curl ; then
             AVAILABLE_FETCH_TOOL=curl
         else
             return 1
@@ -784,6 +784,8 @@ version_of_command() {
         xmlto) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f3 ;;
       xmllint) ;;
      xsltproc) ;;
+     rst2man|rst2man.py|rst2man-3|rst2man-3.6|rst2man-3.7|rst2man-3.8|rst2man-3.9)
+               "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f3 ;;
          gzip) "$1" --version 2>&1 | head -n 1 | awk '{print($NF)}' ;;
          lzip) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f2 ;;
            xz) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f4 ;;
@@ -802,6 +804,8 @@ version_of_command() {
      awk|gawk) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f3 | tr , ' ' ;;
      sed|gsed) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f4 ;;
          cpan) ;;
+         find) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f4 ;;
+         diff) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f4 ;;
          grep) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f4 | cut -d '-' -f1 ;;
          ruby) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f2 ;;
          perl) "$1" -v | sed -n '2p' | sed 's/.*v\([0-9]\.[0-9][0-9]\.[0-9]\).*/\1/' ;;
@@ -847,7 +851,7 @@ version_sort() {
     # sort: unrecognized option: V
     # BusyBox v1.29.3 (2019-01-24 07:45:07 UTC) multi-call binary.
     # Usage: sort [-nrugMcszbdfiokt] [-o FILE] [-k start[.offset][opts][,end[.offset][opts]] [-t CHAR] [FILE]...
-    if  echo | (sort -V 2> /dev/null) ; then
+    if  echo | (sort -V > /dev/null 2>&1) ; then
         echo "$@" | tr ' ' '\n' | sort -V
     else
         echo "$@" | tr ' ' '\n' | sort -t. -n -k1,1 -k2,2 -k3,3 -k4,4
@@ -876,19 +880,19 @@ version_match() {
         ne)  [ "$1" != "$3" ] ;;
         le)
             [ "$1" = "$3" ] && return 0
-            [ "$1" = $(version_sort "$1" "$3" | head -n 1) ]
+            [ "$1" = "$(version_sort "$1" "$3" | head -n 1)" ]
             ;;
         ge)
             [ "$1" = "$3" ] && return 0
-            [ "$1" = $(version_sort "$1" "$3" | tail -n 1) ]
+            [ "$1" = "$(version_sort "$1" "$3" | tail -n 1)" ]
             ;;
         lt)
             [ "$1" = "$3" ] && return 1
-            [ "$1" = $(version_sort "$1" "$3" | head -n 1) ]
+            [ "$1" = "$(version_sort "$1" "$3" | head -n 1)" ]
             ;;
         gt)
             [ "$1" = "$3" ] && return 1
-            [ "$1" = $(version_sort "$1" "$3" | tail -n 1) ]
+            [ "$1" = "$(version_sort "$1" "$3" | tail -n 1)" ]
             ;;
         *)  die "version_compare: $2: not supported operator."
     esac
@@ -905,14 +909,14 @@ version_match() {
 # le  less than or equal
 #
 # examples:
-# command_exists_and_version_matched automake eq 1.16.0
-# command_exists_and_version_matched automake lt 1.16.0
-# command_exists_and_version_matched automake gt 1.16.0
-# command_exists_and_version_matched automake le 1.16.0
-# command_exists_and_version_matched automake ge 1.16.0
-# command_exists_and_version_matched automake
-command_exists_and_version_matched() {
-    if command_exists "$1" ; then
+# command_exists_in_filesystem_and_version_matched automake eq 1.16.0
+# command_exists_in_filesystem_and_version_matched automake lt 1.16.0
+# command_exists_in_filesystem_and_version_matched automake gt 1.16.0
+# command_exists_in_filesystem_and_version_matched automake le 1.16.0
+# command_exists_in_filesystem_and_version_matched automake ge 1.16.0
+# command_exists_in_filesystem_and_version_matched automake
+command_exists_in_filesystem_and_version_matched() {
+    if command_exists_in_filesystem "$1" ; then
         if [ "$NATIVE_OS_TYPE" = 'cygwin' ] ; then
             case $(command -v "$1") in
                 /cygdrive/*) return 1
@@ -928,6 +932,62 @@ command_exists_and_version_matched() {
 
 # }}}
 ##############################################################################
+# {{{ package_manager
+
+# check if the version of give package match the condition
+#
+# condition:
+# eq  equal
+# ne  not equal
+# gt  greater than
+# lt  less than
+# ge  greater than or equal
+# le  less than or equal
+#
+# examples:
+# package_exists_and_version_matched apt automake eq 1.16.0
+# package_exists_and_version_matched apt automake lt 1.16.0
+# package_exists_and_version_matched apt automake gt 1.16.0
+# package_exists_and_version_matched apt automake le 1.16.0
+# package_exists_and_version_matched apt automake ge 1.16.0
+# package_exists_and_version_matched apt automake
+package_exists_in_repo_and_version_matched() {
+    if package_exists_in_repo "$1" "$2" ; then
+        if [ $# -eq 4 ] ; then
+            case $1 in
+                apt|yum) version_match "$(version_of_package "$1" "$2")" "$3" "$4" ;;
+                *)       return 0 ;;
+            esac
+        fi
+    else
+        return 1
+    fi
+}
+
+# check if the give package is in the give repo
+#
+# examples:
+# package_exists_in_repo apt automake
+package_exists_in_repo() {
+    case $1 in
+        apt) apt show "$2" > /dev/null 2>&1 ;;
+        yum) yum info "$2" > /dev/null 2>&1 ;;
+    esac
+}
+
+# get the version of the give package in the give repo
+#
+# examples:
+# version_of_package apt automake
+version_of_package() {
+    case $1 in
+        apt) apt show "$2" 2> /dev/null | grep 'Version: '     | head -n 1 | cut -d ' ' -f2 | cut -d- -f1 ;;
+        yum) yum info "$2" 2> /dev/null | grep 'Version     :' | head -n 1 | cut -d : -f2 | sed 's/^[[:space:]]//' ;;
+    esac
+}
+
+# }}}
+##############################################################################
 # {{{ get_XX_package_name_by_command_name
 
 # https://cygwin.com/packages/package_list.html
@@ -937,6 +997,8 @@ get_choco_package_name_by_command_name() {
        gmake) echo 'make' ;;
          gm4) echo 'm4'    ;;
         gsed) echo 'gnu-sed'  ;;
+        find) echo 'findutils';;
+        diff) echo 'diffutils';;
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
@@ -958,9 +1020,12 @@ get_pkg_add_package_name_by_command_name() {
         perl) echo 'perl5' ;;
        gperf) echo 'gperf' ;;
         gsed) echo 'gnu-sed'  ;;
+        find) echo 'findutils';;
+        diff) echo 'diffutils';;
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
+    pip3|pip) echo 'py3-pip' ;;
     libtool|libtoolize|glibtool|glibtoolize)
               echo "libtool" ;;
     autoreconf|autoconf)
@@ -984,9 +1049,13 @@ get_pkgin_package_name_by_command_name() {
         make) echo 'gmake' ;;
         perl) echo 'perl5' ;;
         gsed) echo 'gnu-sed'  ;;
+        find) echo 'findutils';;
+        diff) echo 'diffutils';;
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
+    pip3|pip) echo 'py38-pip'  ;;
+    python3)  echo 'python38' ;;
     glibtool|libtoolize|glibtoolize)
                 echo "libtool"  ;;
     autoreconf) echo "autoconf" ;;
@@ -1004,9 +1073,12 @@ get_pkg_package_name_by_command_name() {
         make) echo 'gmake' ;;
         perl) echo 'perl5' ;;
         gsed) echo 'gnu-sed'  ;;
+        find) echo 'findutils';;
+        diff) echo 'diffutils';;
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
+    pip3|pip) echo 'py38-pip' ;;
     libtool|libtoolize|glibtool|glibtoolize)
                 echo "libtool"  ;;
     autoreconf) echo "autoconf" ;;
@@ -1022,10 +1094,17 @@ get_emerge_package_name_by_command_name() {
           cc) echo 'gcc' ;;
          gm4) echo 'm4'    ;;
         gsed) echo 'gnu-sed'  ;;
+        find) echo 'findutils';;
+        diff) echo 'diffutils';;
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
-    sphinx-build) echo "sphinx" ;;
+      xz)     echo 'xz-utils' ;;
+      rst2man|rst2html)
+              echo "docutils" ;;
+    sphinx-build)
+              echo "sphinx" ;;
+    pip3|pip) echo "dev-python/pip" ;;
     libtool|libtoolize|glibtool|glibtoolize)
                 echo "libtool"  ;;
     autoreconf) echo "autoconf" ;;
@@ -1038,18 +1117,19 @@ get_emerge_package_name_by_command_name() {
 
 __get_pacman_package_name_by_command_name() {
     case $1 in
-          cc|gcc)
-            case $NATIVE_OS_TYPE in
-                mingw32|mingw64) echo 'toolchain' ;;
-                *)               echo 'gcc'
-            esac
-            ;;
+          cc) echo 'gcc'      ;;
          gm4) echo 'm4'       ;;
         gsed) echo 'gnu-sed'  ;;
+        find) echo 'findutils';;
+        diff) echo 'diffutils';;
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
-    sphinx-build) echo "python-sphinx" ;;
+      rst2man|rst2html)
+              echo "python-docutils" ;;
+    sphinx-build)
+              echo "python-sphinx" ;;
+    pip3|pip) echo "python-pip" ;;
     libtool|libtoolize|glibtool|glibtoolize)
                 echo "libtool"  ;;
     autoreconf) echo "autoconf" ;;
@@ -1093,9 +1173,14 @@ get_xbps_package_name_by_command_name() {
          gm4) echo 'm4'    ;;
        gperf) echo 'gperf' ;;
         gsed) echo 'gnu-sed'  ;;
+        find) echo 'findutils';;
+        diff) echo 'diffutils';;
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
+      rst2man|rst2html)
+              echo "python3-docutils" ;;
+    pip|pip3) echo "python3-pip" ;;
     glibtool|libtoolize|glibtoolize)
                 echo "libtool"  ;;
     autoreconf) echo "autoconf" ;;
@@ -1112,10 +1197,16 @@ get_apk_package_name_by_command_name() {
          gm4) echo 'm4'    ;;
        gperf) echo 'gperf' ;;
         gsed) echo 'gnu-sed'  ;;
+        find) echo 'findutils';;
+        diff) echo 'diffutils';;
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
-    sphinx-build) echo "sphinx" ;;
+      rst2man|rst2html)
+              echo "py3-docutils" ;;
+    sphinx-build)
+              echo "sphinx"  ;;
+    pip3|pip) echo 'py3-pip' ;;
     glibtool|libtoolize|glibtoolize)
                 echo "libtool"  ;;
     autoreconf) echo "autoconf" ;;
@@ -1132,10 +1223,16 @@ get_zypper_package_name_by_command_name() {
          gm4) echo 'm4'    ;;
        gperf) echo 'gperf' ;;
         gsed) echo 'gnu-sed'  ;;
+        find) echo 'findutils';;
+        diff) echo 'diffutils';;
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
-    sphinx-build) echo "python3-Sphinx" ;;
+      rst2man|rst2html)
+              echo "python3-docutils" ;;
+    sphinx-build)
+              echo "python3-Sphinx" ;;
+    pip3|pip) echo "python3-pip" ;;
     glibtool|libtoolize|glibtoolize)
                 echo "libtool"  ;;
     autoreconf) echo "autoconf" ;;
@@ -1152,10 +1249,15 @@ get_dnf_package_name_by_command_name() {
          gm4) echo 'm4'    ;;
        gperf) echo 'gperf' ;;
         gsed) echo 'gnu-sed'  ;;
+        find) echo 'findutils';;
+        diff) echo 'diffutils';;
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
-    sphinx-build) echo "python-sphinx" ;;
+      rst2man|rst2html)
+              echo "python3-docutils" ;;
+    sphinx-build)
+              echo "python-sphinx" ;;
     glibtool|libtoolize|glibtoolize)
                 echo "libtool"  ;;
     autoreconf) echo "autoconf" ;;
@@ -1171,6 +1273,8 @@ get_yum_package_name_by_command_name() {
          gm4) echo 'm4'    ;;
        gperf) echo 'gperf' ;;
         gsed) echo 'gnu-sed'  ;;
+        find) echo 'findutils';;
+        diff) echo 'diffutils';;
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
@@ -1194,10 +1298,17 @@ get_apt_package_name_by_command_name() {
          gm4) echo 'm4'    ;;
        gperf) echo 'gperf' ;;
         gsed) echo 'gnu-sed'  ;;
+        find) echo 'findutils';;
+        diff) echo 'diffutils';;
+        xz)   echo 'xz-utils' ;;
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
-    sphinx-build) echo "python3-sphinx" ;;
+      rst2man|rst2html)
+              echo "python3-docutils" ;;
+    sphinx-build)
+              echo "python3-sphinx" ;;
+    pip3|pip) echo "python3-pip" ;;
     glibtool|libtoolize|glibtoolize)
                 echo "libtool"  ;;
     autoreconf) echo "autoconf" ;;
@@ -1213,10 +1324,13 @@ get_brew_package_name_by_command_name() {
          gm4) echo 'm4'    ;;
        gperf) echo 'gperf' ;;
         gsed) echo 'gnu-sed'  ;;
+        find) echo 'findutils';;
+        diff) echo 'diffutils';;
      objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
-    sphinx-build) echo "sphinx-doc" ;;
+     rst2man.py|rst2html.py)
+              echo "docutils" ;;
     glibtool|libtoolize|glibtoolize)
                 echo "libtool"  ;;
     autoreconf) echo "autoconf" ;;
@@ -1232,7 +1346,8 @@ get_pip3_package_name_by_command_name() {
 
 get_pip_package_name_by_command_name() {
     case $1 in
-        sphinx-build) echo "sphinx" ;;
+        sphinx-build) echo "sphinx"   ;;
+        rst2man.py)   echo "docutils" ;;
     esac
 }
 
@@ -1241,7 +1356,7 @@ get_pip_package_name_by_command_name() {
 # {{{ __get_available_package_manager_list
 
 __add_available_package_manager() {
-    if command_exists "$1" ; then
+    if command_exists_in_filesystem "$1" ; then
         if [ -z "$AVAILABLE_PACKAGE_MANAGER_LIST" ] ; then
             AVAILABLE_PACKAGE_MANAGER_LIST="$2"
         else
@@ -1252,18 +1367,27 @@ __add_available_package_manager() {
 
 __get_available_package_manager_list() {
     if [ -z "$AVAILABLE_PACKAGE_MANAGER_LIST" ] ; then
-        for item in brew pip3 pip apt-get apt dnf yum zypper apk xbps-install emerge pacman choco pkg pkgin pkg_add
+        for pm in brew apt dnf zypper apk xbps-install emerge pacman choco pkg pkgin pkg_add
         do
-            case $item in
+            case $pm in
                 apt)
-                    if apt show apt > /dev/null 2>&1 ; then
+                    if command_exists_in_filesystem apt && apt show apt > /dev/null 2>&1 ; then
                         __add_available_package_manager apt apt
+                    else
+                        __add_available_package_manager apt-get apt-get
+                    fi
+                    ;;
+                dnf)
+                    if command_exists_in_filesystem dnf ; then
+                        __add_available_package_manager dnf dnf
+                    else
+                        __add_available_package_manager yum yum
                     fi
                     ;;
                 xbps-install)
                     __add_available_package_manager xbps-install xbps
                     ;;
-                *)  __add_available_package_manager "$item" "$item"
+                *)  __add_available_package_manager "$pm" "$pm"
             esac
         done
     fi
@@ -1276,10 +1400,27 @@ __get_available_package_manager_list() {
 
 # $1 package manager name
 # $2 package name
+# examples:
+# __install_package_via_package_manager apt make ge 3.80
+# __install_package_via_package_manager apt make
 __install_package_via_package_manager() {
+    [ -z "$2" ] && return 1
+
+    package_exists_in_repo_and_version_matched $@ || return 1
+
+    print "🔥  ${COLOR_YELLOW}required command${COLOR_OFF} ${COLOR_GREEN}$(shiftn 1 $@)${COLOR_OFF}${COLOR_YELLOW}, but${COLOR_OFF} ${COLOR_GREEN}$2${COLOR_OFF} ${COLOR_YELLOW}command not found, try to install it via${COLOR_OFF} ${COLOR_GREEN}$1${COLOR_OFF}\n"
+
     case $1 in
-        pip3)    run pip3 install -U "$2" ;;
-        pip)     run pip  install -U "$2" ;;
+        pip3) case $NATIVE_OS_KIND in
+                *bsd|linux) run pip3 install --user -U "$2" ;;
+                *)          run pip3 install        -U "$2"
+              esac
+              ;;
+        pip)  case $NATIVE_OS_KIND in
+                *bsd|linux) run pip  install --user -U "$2" ;;
+                *)          run pip  install        -U "$2"
+              esac
+              ;;
         pkg)     run $sudo pkg install -y "$2" ;;
         pkgin)   run $sudo pkgin -y install "$2" ;;
         pkg_add) run $sudo pkg_add "$2" ;;
@@ -1302,23 +1443,16 @@ __install_package_via_package_manager() {
         pacman)  run $sudo pacman -Syy --noconfirm && run $sudo pacman -S --noconfirm "$2" ;;
         choco)   run choco install -y --source cygwin "$2" ;;
     esac
+    echo
 }
 
 # $1 package manager name
 # $2 command name
+# examples:
+# __install_command_via_package_manager apt make ge 3.80
+# __install_command_via_package_manager apt make
 __install_command_via_package_manager() {
-    PACKAGE_NAME="$(eval get_$(echo "$1" | tr - _)_package_name_by_command_name $2)"
-    if [ -z "$PACKAGE_NAME" ] ; then
-        warn "can not found a package in $1 repo, which contains the $2 command."
-        return 1
-    else
-        print "🔥  ${COLOR_YELLOW}required command${COLOR_OFF} ${COLOR_GREEN}$(shiftn 1 $@)${COLOR_OFF}${COLOR_YELLOW}, but${COLOR_OFF} ${COLOR_GREEN}$2${COLOR_OFF} ${COLOR_YELLOW}command not found, try to install it via${COLOR_OFF} ${COLOR_GREEN}$1${COLOR_OFF}\n"
-        if __install_package_via_package_manager "$1" "$PACKAGE_NAME" ; then
-            echo
-        else
-            return 1
-        fi
-    fi
+    __install_package_via_package_manager "$1" "$(eval get_$(echo "$1" | tr - _)_package_name_by_command_name $2)" $(shiftn 2 $@)
 }
 
 # examples:
@@ -1326,92 +1460,135 @@ __install_command_via_package_manager() {
 # python3    ge 3.5
 # make
 __install_command_via_available_package_manager() {
-    if command_exists_and_version_matched $@ ; then
-        return 0
-    else
+    command_exists_in_filesystem_and_version_matched $@ && return 0
+ 
+    if [ -z "$AVAILABLE_PACKAGE_MANAGER_LIST" ] ; then
+        AVAILABLE_PACKAGE_MANAGER_LIST=$(__get_available_package_manager_list)
         if [ -z "$AVAILABLE_PACKAGE_MANAGER_LIST" ] ; then
-            AVAILABLE_PACKAGE_MANAGER_LIST=$(__get_available_package_manager_list)
-            if [ -z "$AVAILABLE_PACKAGE_MANAGER_LIST" ] ; then
-                warn "no package manager found."
-                return 1
-            else
-                echo "    Found $(list_length $AVAILABLE_PACKAGE_MANAGER_LIST) package manager : ${COLOR_GREEN}$AVAILABLE_PACKAGE_MANAGER_LIST${COLOR_OFF}"
-            fi
+            warn "no package manager found."
+            return 1
+        else
+            echo "    Found $(list_length $AVAILABLE_PACKAGE_MANAGER_LIST) package manager : ${COLOR_GREEN}$AVAILABLE_PACKAGE_MANAGER_LIST${COLOR_OFF}"
         fi
-        for pm in $AVAILABLE_PACKAGE_MANAGER_LIST
-        do
-            __install_command_via_package_manager "$pm" $@ && return 0
-        done
     fi
+    for pm in $AVAILABLE_PACKAGE_MANAGER_LIST
+    do
+        __install_command_via_package_manager "$pm" $@ && return 0
+    done
+    return 1
+}
+
+handle_dependency_from_url() {
+    case $1 in
+        *.zip)
+            handle_dependency required command unzip
+            ;;
+        *.tar.xz)
+            handle_dependency required command tar
+            handle_dependency required command xz
+            ;;
+        *.tar.gz)
+            handle_dependency required command tar
+            handle_dependency required command gzip
+            ;;
+        *.tar.lz)
+            handle_dependency required command tar
+            handle_dependency required command lzip
+            ;;
+        *.tar.bz2)
+            handle_dependency required command tar
+            handle_dependency required command bzip2
+            ;;
+        *.tgz)
+            handle_dependency required command tar
+            handle_dependency required command gzip
+            ;;
+        *.txz)
+            handle_dependency required command tar
+            handle_dependency required command xz
+    esac
+}
+
+get_suffix_from_filename() {
+    case $1 in
+        *.zip)     echo '.zip' ;;
+        *.tar.xz)  echo '.tar.xz' ;;
+        *.tar.gz)  echo '.tar.gz' ;;
+        *.tar.lz)  echo '.tar.lz' ;;
+        *.tar.bz2) echo '.tar.bz2' ;;
+        *.tgz)     echo '.tgz' ;;
+        *.txz)     echo '.txz' ;;
+    esac
 }
 
 # examples:
-# URL pkg-config ge 0.18
-# URL python3    ge 3.5
-# URL make
+# pkg-config ge 0.18
+# python3    ge 3.5
+# make
 __install_command_via_fetch_prebuild_binary() {
-    print "🔥  ${COLOR_YELLOW}required command${COLOR_OFF} ${COLOR_GREEN}$(shiftn 1 $@)${COLOR_OFF}${COLOR_YELLOW}, but${COLOR_OFF} ${COLOR_GREEN}$2${COLOR_OFF} ${COLOR_YELLOW}command not found, try to install it via${COLOR_OFF} ${COLOR_GREEN}fetch prebuild binary${COLOR_OFF}\n"
+    unset PREBUILD_BINARY_FETCH_URL
+    PREBUILD_BINARY_FETCH_URL=$(__get_prebuild_binary_fetch_url_by_command_name "$1")
+    if [ -z "$PREBUILD_BINARY_FETCH_URL" ] ; then
+        warn "no fetch url for $@"
+        return 1
+    fi
 
+    handle_dependency_from_url "$PREBUILD_BINARY_FETCH_URL"
+
+    print "🔥  ${COLOR_YELLOW}required command${COLOR_OFF} ${COLOR_GREEN}$@${COLOR_OFF}${COLOR_YELLOW}, but${COLOR_OFF} ${COLOR_GREEN}$1${COLOR_OFF} ${COLOR_YELLOW}command not found, try to install it via${COLOR_OFF} ${COLOR_GREEN}fetch prebuild binary${COLOR_OFF}\n"
+
+    unset PREBUILD_BINARY_FETCH_URL
+    PREBUILD_BINARY_FETCH_URL=$(__get_prebuild_binary_fetch_url_by_command_name "$1")
+
+    unset PREBUILD_BINARY_FILENAME_PREFIX
+    unset PREBUILD_BINARY_FILENAME_SUFFIX
     unset PREBUILD_BINARY_FILENAME
     unset PREBUILD_BINARY_FILEPATH
 
-    PREBUILD_BINARY_FILENAME=$(basename "$1")
-    PREBUILD_BINARY_FILEPATH="$PREBUILD_BINARY_CACHED_DIR/$PREBUILD_BINARY_FILENAME"
+    PREBUILD_BINARY_FILENAME=$(basename "$PREBUILD_BINARY_FETCH_URL")
+    PREBUILD_BINARY_FILENAME_SUFFIX=$(get_suffix_from_filename "$PREBUILD_BINARY_FILENAME")
+    PREBUILD_BINARY_FILENAME_PREFIX=$(basename "$PREBUILD_BINARY_FILENAME" "$PREBUILD_BINARY_FILENAME_SUFFIX")
 
-    if [ -d    "$PREBUILD_BINARY_UNPACK_DIR/$2" ] ; then
-        rm -rf "$PREBUILD_BINARY_UNPACK_DIR/$2" || return 1
+    unset PREBUILD_BINARY_INSTALL_DIR
+    PREBUILD_BINARY_INSTALL_DIR="$PREBUILD_BINARY_INSTALL_PREFIX_DIR/$PREBUILD_BINARY_FILENAME_PREFIX"
+
+    PREBUILD_BINARY_FILEPATH="$PREBUILD_BINARY_INSTALL_DIR/$PREBUILD_BINARY_FILENAME"
+
+    if [ -d "$PREBUILD_BINARY_INSTALL_PREFIX_DIR" ] ; then
+        if [ -d "$PREBUILD_BINARY_INSTALL_DIR" ] ; then
+            if [ -r "$PREBUILD_BINARY_INSTALL_DIR" ] && [ -w "$PREBUILD_BINARY_INSTALL_DIR" ] && [ -x "$PREBUILD_BINARY_INSTALL_DIR" ] ; then
+                rm -rf "$PREBUILD_BINARY_INSTALL_DIR" || return 1
+                install -o $(whoami) -d "$PREBUILD_BINARY_INSTALL_DIR" || return 1
+            else
+                sudo rm -rf "$PREBUILD_BINARY_INSTALL_DIR" || return 1
+                sudo install -o $(whoami) -d "$PREBUILD_BINARY_INSTALL_DIR" || return 1
+            fi
+        else
+            if [ -r "$PREBUILD_BINARY_INSTALL_PREFIX_DIR" ] && [ -w "$PREBUILD_BINARY_INSTALL_PREFIX_DIR" ] && [ -x "$PREBUILD_BINARY_INSTALL_PREFIX_DIR" ] ; then
+                install -o $(whoami) -d "$PREBUILD_BINARY_INSTALL_DIR" || return 1
+            else
+                sudo install -o $(whoami) -d "$PREBUILD_BINARY_INSTALL_DIR" || return 1
+            fi
+        fi
+    else
+        if [ -r / ] && [ -w / ] && [ -x / ] ; then
+                 install -o $(whoami) -d "$PREBUILD_BINARY_INSTALL_DIR" || return 1
+        else
+            sudo install -o $(whoami) -d "$PREBUILD_BINARY_INSTALL_DIR" || return 1
+        fi
     fi
 
-    if [ ! -f "$PREBUILD_BINARY_FILEPATH" ] ; then
-        run fetch "$1" --output-dir="$PREBUILD_BINARY_CACHED_DIR" --output-name="$PREBUILD_BINARY_FILENAME" || return 1
-    fi
+    run fetch "$PREBUILD_BINARY_FETCH_URL" --output-dir="$PREBUILD_BINARY_INSTALL_DIR" --output-name="$PREBUILD_BINARY_FILENAME" || return 1
 
-    run install -d "$PREBUILD_BINARY_UNPACK_DIR/$2" || return 1
-
-    case $1 in
-        *.zip)
-            handle_dependency required command unzip &&
-            run unzip "$PREBUILD_BINARY_FILEPATH" -d "$PREBUILD_BINARY_UNPACK_DIR/$2"
-            ;;
-        *.tar.xz)
-            handle_dependency required command tar  &&
-            handle_dependency required command xz   &&
-            run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_UNPACK_DIR/$2" --strip-components 1
-            ;;
-        *.tar.gz)
-            handle_dependency required command tar  &&
-            handle_dependency required command gzip &&
-            run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_UNPACK_DIR/$2" --strip-components 1
-            ;;
-        *.tar.lz)
-            handle_dependency required command tar  &&
-            handle_dependency required command lzip &&
-            run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_UNPACK_DIR/$2" --strip-components 1
-            ;;
-        *.tar.bz2)
-            handle_dependency required command tar   &&
-            handle_dependency required command bzip2 &&
-            run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_UNPACK_DIR/$2" --strip-components 1
-            ;;
-        *.tgz)
-            handle_dependency required command tar  &&
-            handle_dependency required command gzip &&
-            run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_UNPACK_DIR/$2" --strip-components 1
-            ;;
-        *.txz)
-            handle_dependency required command tar &&
-            handle_dependency required command xz  &&
-            run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_UNPACK_DIR/$2" --strip-components 1
+    case $PREBUILD_BINARY_FILENAME_SUFFIX in
+        .zip)
+            run unzip  "$PREBUILD_BINARY_FILEPATH" -d "$PREBUILD_BINARY_INSTALL_DIR" || return 1 ;;
+        .tar.xz|.tar.gz|.tar.lz|.tar.bz2|.tgz|.txz|.tlz)
+            run tar xf "$PREBUILD_BINARY_FILEPATH" -C "$PREBUILD_BINARY_INSTALL_DIR" --strip-components 1 || return 1 ;;
     esac
 
-    if [ -d "$PREBUILD_BINARY_UNPACK_DIR/$2/bin" ] ; then
-        export PATH="$PREBUILD_BINARY_UNPACK_DIR/$2/bin:$PATH"
-    fi
-    if [ "$NATIVE_OS_KIND" = 'darwin' ] ; then
-        for item in $(find "$PREBUILD_BINARY_UNPACK_DIR" -d 4 -type d -name bin)
-        do
-            export PATH="$item:$PATH"
-        done
+    if [ -d "$PREBUILD_BINARY_INSTALL_DIR/bin" ] ; then
+        export PATH="$PREBUILD_BINARY_INSTALL_DIR/bin:$PATH"
     fi
 }
 
@@ -1421,6 +1598,15 @@ __install_command_via_fetch_prebuild_binary() {
 # make
 __get_prebuild_binary_fetch_url_by_command_name() {
     case $1 in
+        python3|python)
+            case $NATIVE_OS_KIND in
+                linux)
+                    if [ "$NATIVE_OS_LIBC" = 'glibc' ] && [ "$NATIVE_OS_ARCH" = 'x86_64' ] ; then
+                        # https://github.com/leleliu008/python-prebuild
+                        echo "https://github.com/leleliu008/python-prebuild/releases/download/3.9.5/python-3.9.5-x86_64-linux-glibc.tar.xz"
+                    fi
+            esac
+            ;;
         cmake)
             case $NATIVE_OS_KIND in
                 linux)
@@ -1430,11 +1616,34 @@ __get_prebuild_binary_fetch_url_by_command_name() {
                     fi
                     ;;
                 darwin)
-                    if ! command_exists brew ; then
+                    if ! command_exists_in_filesystem brew ; then
                         echo "https://github.com/Kitware/CMake/releases/download/v3.20.2/cmake-3.20.2-macos-universal.tar.gz"
                     fi
             esac
     esac
+}
+
+__install_command_via_pip() {
+    [ -z "$(get_pip3_package_name_by_command_name "$1")" ] && return 1
+
+    handle_dependency required command pip3:pip
+
+    (
+        unset __PIP_COMMAND__
+        __PIP_COMMAND__="$(command -v pip3.8)"
+
+        if [ -n "$__PIP_COMMAND__" ] && [ -d '/usr/local/bin' ] ; then
+            $sudo ln -sf "$__PIP_COMMAND__" /usr/local/bin/pip3
+        fi
+    )
+
+    if   command_exists_in_filesystem pip3 ; then
+        __install_package_via_package_manager pip3 "$(get_pip3_package_name_by_command_name "$1")"
+    elif command_exists_in_filesystem pip ; then
+        __install_package_via_package_manager pip  "$(get_pip3_package_name_by_command_name "$1")"
+    else
+        return 1
+    fi
 }
 
 # examples:
@@ -1442,17 +1651,11 @@ __get_prebuild_binary_fetch_url_by_command_name() {
 # python3    ge 3.5
 # make
 __install_command() {
-    if command_exists_and_version_matched $@ ; then
-        return 0
-    else
-        unset PREBUILD_BINARY_FETCH_URL
-        PREBUILD_BINARY_FETCH_URL=$(__get_prebuild_binary_fetch_url_by_command_name "$1")
-        if [ -z "$PREBUILD_BINARY_FETCH_URL" ] ; then
-            __install_command_via_available_package_manager $@
-        else
-            __install_command_via_fetch_prebuild_binary "$PREBUILD_BINARY_FETCH_URL" $@
-        fi
-    fi
+    command_exists_in_filesystem_and_version_matched $@ && return 0
+
+    __install_command_via_pip $@ && return 0
+    __install_command_via_available_package_manager $@ && return 0
+    __install_command_via_fetch_prebuild_binary $@
 }
 
 # examples:
@@ -1464,9 +1667,7 @@ __install_command() {
 # handle_dependency optional command python     ge 3.5
 # handle_dependency optional python  libxml2    ge 2.19
 handle_dependency() {
-    if [ "$1" != 'required' ] ; then
-        return 0
-    fi
+    [ "$1" = 'required' ] || return 0
 
     shift
 
@@ -1475,17 +1676,17 @@ handle_dependency() {
             shift
             case $1 in
                 *:*)
-                    for item in $(echo "$1" | tr ':' ' ')
+                    for command in $(echo "$1" | tr ':' ' ')
                     do
-                        if command_exists_and_version_matched "$item" $2 $3 ; then
-                            map_set "$MAP_REQUIRED_DEPENDENCIES" "$1" "$item"
+                        if command_exists_in_filesystem_and_version_matched "$command" $2 $3 ; then
+                            map_set "$MAP_REQUIRED_DEPENDENCIES" "$1" "$command"
                             return 0
                         fi
                     done
-                    for item in $(echo "$1" | tr ':' ' ')
+                    for command in $(echo "$1" | tr ':' ' ')
                     do
-                        if __install_command "$item" $2 $3 ; then
-                            map_set "$MAP_REQUIRED_DEPENDENCIES" "$1" "$item"
+                        if __install_command "$command" $2 $3 ; then
+                            map_set "$MAP_REQUIRED_DEPENDENCIES" "$1" "$command"
                             return 0
                         fi
                     done
@@ -1495,15 +1696,15 @@ handle_dependency() {
             ;;
         python|python3)
             shift
-            if command_exists python3 ; then
+            if command_exists_in_filesystem python3 ; then
                 if ! python3 -c "import $1" 2> /dev/null ; then
-                    if command_exists pip3 ; then
+                    if command_exists_in_filesystem pip3 ; then
                         pip3 install -U "$1" || return 1
                     fi
                 fi
-            elif command_exists python ; then
+            elif command_exists_in_filesystem python ; then
                 if ! python -c "import $1" 2> /dev/null ; then
-                    if command_exists pip ; then
+                    if command_exists_in_filesystem pip ; then
                         pip install -U "$1" || return 1
                     fi
                 fi
@@ -1511,20 +1712,32 @@ handle_dependency() {
             ;;
         perl)
             shift
-            if ! perl -M"$1" -le 'print "installed"' > /dev/null 2>&1 ; then
-                cpan -i "$1" || return 1
+            if ! command_exists_in_filesystem perl ; then
+                 handle_dependency required command perl
+            fi
+            if ! perl_module_installed "$1" ; then
+                if  command_exists_in_filesystem cpan ; then
+                    cpan -i "$1" || return 1
+                fi
             fi
             ;;
         *) die "$1 not support."
     esac
 }
 
+# check if the given perl module is installed
+# examples:
+# perl_module_installed lixml2
+perl_module_installed() {
+    perl -M"$1" -le 'print "installed"' > /dev/null 2>&1
+}
+
 __handle_required_dependencies() {
     step "handle required dependencies"
 
-    for item in $REQUIRED_DEPENDENCY_LIST
+    for dependency in $REQUIRED_DEPENDENCY_LIST
     do
-        handle_dependency $(__decode_dependency "$item") || return 1
+        handle_dependency $(__decode_dependency "$dependency") || return 1
     done
 }
 
@@ -1586,9 +1799,9 @@ __printf_required_dependencies() {
         warn "no required dependencies."
     else
         __printf_dependency TYPE NAME OP EXPECT ACTUAL LOCATION
-        for item in $REQUIRED_DEPENDENCY_LIST
+        for dependency in $REQUIRED_DEPENDENCY_LIST
         do
-            printf_dependency $(__decode_dependency "$item")
+            printf_dependency $(__decode_dependency "$dependency")
         done
     fi
 }
@@ -1599,9 +1812,9 @@ __printf_optional_dependencies() {
         warn "no optional dependencies."
     else
         __printf_dependency TYPE NAME OP EXPECT ACTUAL LOCATION
-        for item in $OPTIONAL_DEPENDENCY_LIST
+        for dependency in $OPTIONAL_DEPENDENCY_LIST
         do
-            printf_dependency $(__decode_dependency "$item")
+            printf_dependency $(__decode_dependency "$dependency")
         done
     fi
 }
@@ -1670,26 +1883,21 @@ __decode_dependency() {
 # regist_dependency optional command python     ge 3.5
 # regist_dependency optional python  libxml2    ge 2.19
 regist_dependency() {
-    for item in $@
-    do
-        case $item in
-            required)
-                if [ -z "$REQUIRED_DEPENDENCY_LIST" ] ; then
-                    REQUIRED_DEPENDENCY_LIST="$(__encode_dependency "$*")"
-                else
-                    REQUIRED_DEPENDENCY_LIST="$REQUIRED_DEPENDENCY_LIST $(__encode_dependency "$*")"
-                fi
-                break
-                ;;
-            optional)
-                if [ -z "$OPTIONAL_DEPENDENCY_LIST" ] ; then
-                    OPTIONAL_DEPENDENCY_LIST=$(__encode_dependency "$*")
-                else
-                    OPTIONAL_DEPENDENCY_LIST="$OPTIONAL_DEPENDENCY_LIST $(__encode_dependency "$*")"
-                fi
-                break
-        esac
-    done
+    case $1 in
+        required)
+            if [ -z "$REQUIRED_DEPENDENCY_LIST" ] ; then
+                REQUIRED_DEPENDENCY_LIST="$(__encode_dependency "$*")"
+            else
+                REQUIRED_DEPENDENCY_LIST="$REQUIRED_DEPENDENCY_LIST $(__encode_dependency "$*")"
+            fi
+            ;;
+        optional)
+            if [ -z "$OPTIONAL_DEPENDENCY_LIST" ] ; then
+                OPTIONAL_DEPENDENCY_LIST=$(__encode_dependency "$*")
+            else
+                OPTIONAL_DEPENDENCY_LIST="$OPTIONAL_DEPENDENCY_LIST $(__encode_dependency "$*")"
+            fi
+    esac
 }
 
 # }}}
@@ -1765,6 +1973,21 @@ EOF
 
     unset MAP_REQUIRED_DEPENDENCIES
     MAP_REQUIRED_DEPENDENCIES='MAP_REQUIRED_DEPENDENCIES'
+
+    unset PREBUILD_BINARY_INSTALL_PREFIX_DIR
+    PREBUILD_BINARY_INSTALL_PREFIX_DIR='/opt'
+
+    if [ -d "$PREBUILD_BINARY_INSTALL_PREFIX_DIR" ] ; then
+        for item in $(ls "$PREBUILD_BINARY_INSTALL_PREFIX_DIR")
+        do
+            if [ -d "$PREBUILD_BINARY_INSTALL_PREFIX_DIR/$item/bin" ] ; then
+                export PATH="$PREBUILD_BINARY_INSTALL_PREFIX_DIR/$item/bin:$PATH"
+            fi
+        done
+    fi
+
+    # pip install --user <PKG>
+    export PATH=$HOME/.local/bin:$PATH
 
     unset RC_FILE
 
@@ -1846,6 +2069,14 @@ EOF
     # https://www.gnu.org/software/autoconf/manual/autoconf-2.69/html_node/Versioning.html
     AUTOCONF_VERSION_MREQUIRED=$(grep 'AC_PREREQ\s*(\[.*\])\s*$' configure.ac | sed 's/AC_PREREQ\s*(\[\(.*\)\])/\1/')
 
+    regist_dependency required command gsed:sed
+    regist_dependency required command grep
+    regist_dependency required command m4
+    regist_dependency required command perl
+    regist_dependency required command autoconf ge "$AUTOCONF_VERSION_MREQUIRED"
+    regist_dependency required command automake
+    regist_dependency required command gmake:make:bmake
+
     step "load $RC_FILE"
     if file_exists "$RC_FILE" ; then
         if . "$RC_FILE" ; then
@@ -1856,12 +2087,6 @@ EOF
     else
         warn "$RC_FILE not exist. skipped."
     fi
-
-    regist_dependency required command autoconf ge "$AUTOCONF_VERSION_MREQUIRED"
-    regist_dependency required command automake
-    regist_dependency required command m4
-    regist_dependency required command perl
-    regist_dependency required command make:gmake:bmake
 
     __is_libtool_used &&
     regist_dependency required command libtoolize
