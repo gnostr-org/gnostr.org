@@ -1260,7 +1260,7 @@ get_dnf_package_name_by_command_name() {
       rst2man|rst2html)
               echo "python3-docutils" ;;
     sphinx-build)
-              echo "python-sphinx" ;;
+              echo "python3-sphinx" ;;
     glibtool|libtoolize|glibtoolize)
                 echo "libtool"  ;;
     autoreconf) echo "autoconf" ;;
@@ -1411,8 +1411,6 @@ __install_package_via_package_manager() {
 
     package_exists_in_repo_and_version_matched $@ || return 1
 
-    print "🔥  ${COLOR_YELLOW}required command${COLOR_OFF} ${COLOR_GREEN}$(shiftn 1 $@)${COLOR_OFF}${COLOR_YELLOW}, but${COLOR_OFF} ${COLOR_GREEN}$2${COLOR_OFF} ${COLOR_YELLOW}command not found, try to install it via${COLOR_OFF} ${COLOR_GREEN}$1${COLOR_OFF}\n"
-
     case $1 in
         pip3) case $NATIVE_OS_KIND in
                 *bsd|linux) run pip3 install --user -U "$2" ;;
@@ -1430,14 +1428,7 @@ __install_package_via_package_manager() {
         brew)    run brew install "$2" ;;
         apt)     run $sudo apt     -y install "$2" ;;
         apt-get) run $sudo apt-get -y install "$2" ;;
-        dnf)
-            # Error: GPG check FAILED
-            if [ "$NATIVE_OS_NAME" = 'fedora' ] && [ "$NATIVE_OS_VERS" = 'rawhide' ] ; then
-                 run $sudo dnf -y install "$2" --nogpgcheck
-            else
-                 run $sudo dnf -y install "$2"
-            fi
-            ;;
+        dnf)     run $sudo dnf -y install "$2" ;;
         yum)     run $sudo yum -y install "$2" ;;
         zypper)  run $sudo zypper install -y "$2" ;;
         apk)     run $sudo apk add "$2" ;;
@@ -1455,7 +1446,16 @@ __install_package_via_package_manager() {
 # __install_command_via_package_manager apt make ge 3.80
 # __install_command_via_package_manager apt make
 __install_command_via_package_manager() {
-    __install_package_via_package_manager "$1" "$(eval get_$(echo "$1" | tr - _)_package_name_by_command_name $2)" $(shiftn 2 $@)
+    unset __PACKAGE_NAME__
+    __PACKAGE_NAME__="$(eval get_$(echo "$1" | tr - _)_package_name_by_command_name $2)"
+
+    [ -z "$__PACKAGE_NAME__" ] && return 1
+
+    package_exists_in_repo_and_version_matched "$1" "$__PACKAGE_NAME__" $3 $4 || return 1
+
+    print "🔥  ${COLOR_YELLOW}required command${COLOR_OFF} ${COLOR_GREEN}$(shiftn 1 $@)${COLOR_OFF}${COLOR_YELLOW}, but${COLOR_OFF} ${COLOR_GREEN}$2${COLOR_OFF} ${COLOR_YELLOW}command not found, try to install it via${COLOR_OFF} ${COLOR_GREEN}$1${COLOR_OFF}\n"
+
+    __install_package_via_package_manager "$1" "$__PACKAGE_NAME__" $3 $4
 }
 
 # examples:
