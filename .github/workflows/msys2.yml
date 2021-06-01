@@ -29,7 +29,7 @@ jobs:
       shell: bash
     - uses: actions/checkout@v2
 
-    - run: git clone https://github.com/leleliu008/ctags-test
+    - run: git clone https://github.com/leleliu008/ctags-test ctags
     - run: cp autogen.sh ctags
     - run: cp autogen.rc ctags
     - run: cd ctags && ./autogen.sh
