@@ -96,12 +96,34 @@ shiftn() {
 
 sed_in_place() {
     if command -v gsed > /dev/null ; then
-        run gsed -i "\"$1\"" $(shiftn 1 $@)
+        unset SED_IN_PLACE_ACTION
+        SED_IN_PLACE_ACTION="$1"
+        shift
+        # contains ' but not contains \'
+        if printf "$SED_IN_PLACE_ACTION" | hexdump -v -e '1/1 "%02X" " "' | grep -q 27 && ! printf "$SED_IN_PLACE_ACTION" | hexdump -v -e '1/1 "%02X" ""' | grep -q '5C 27' ; then
+            run gsed -i "\"$SED_IN_PLACE_ACTION\"" $@
+        else
+            run gsed -i "'$SED_IN_PLACE_ACTION'" $@
+        fi
     elif command -v sed  > /dev/null ; then
         if sed -i 's/a/b/g' $(mktemp) 2> /dev/null ; then
-            run sed -i "\"$1\"" $(shiftn 1 $@)
+            unset SED_IN_PLACE_ACTION
+            SED_IN_PLACE_ACTION="$1"
+            shift
+            if printf "$SED_IN_PLACE_ACTION" | hexdump -v -e '1/1 "%02X" " "' | grep -q 27 && ! printf "$SED_IN_PLACE_ACTION" | hexdump -v -e '1/1 "%02X" ""' | grep -q '5C 27' ; then
+                run sed -i "\"$SED_IN_PLACE_ACTION\"" $@
+            else
+                run sed -i "'$SED_IN_PLACE_ACTION'" $@
+            fi
         else
-            run sed -i '""' "\"$1\"" $(shiftn 1 $@)
+            unset SED_IN_PLACE_ACTION
+            SED_IN_PLACE_ACTION="$1"
+            shift
+            if printf "$SED_IN_PLACE_ACTION" | hexdump -v -e '1/1 "%02X" " "' | grep -q 27 && ! printf "$SED_IN_PLACE_ACTION" | hexdump -v -e '1/1 "%02X" ""' | grep -q '5C 27' ; then
+                run sed -i '""' "\"$SED_IN_PLACE_ACTION\"" $@
+            else
+                run sed -i '""' "'$SED_IN_PLACE_ACTION'" $@
+            fi
         fi
     else
         die "please install sed utility."
@@ -385,15 +407,21 @@ __get_available_fetch_tool() {
 
 __fetch_via_git() {
     if [ -d "$FETCH_OUTPUT_PATH" ] ; then
-        if      git -C "$FETCH_OUTPUT_PATH" rev-parse 2> /dev/null ; then
-            run git -C "$FETCH_OUTPUT_PATH" pull &&
-            run git -C "$FETCH_OUTPUT_PATH" submodule update --recursive
+        run cd  "$FETCH_OUTPUT_PATH" || return 1
+        if      git rev-parse 2> /dev/null ; then
+            run git pull &&
+            run git submodule update --recursive
         else
-            run rm -rf "$FETCH_OUTPUT_PATH" &&
-            run git -C "$FETCH_OUTPUT_DIR" clone --recursive "$FETCH_URL" "$FETCH_OUTPUT_NAME"
+            run cd .. &&
+            run rm -rf "$FETCH_OUTPUT_NAME" &&
+            run git clone --recursive "$FETCH_URL" "$FETCH_OUTPUT_NAME"
         fi
     else
-        run git -C "$FETCH_OUTPUT_DIR" clone --recursive "$FETCH_URL" "$FETCH_OUTPUT_NAME"
+        if [ ! -d "$FETCH_OUTPUT_DIR" ] ; then
+            run install -d "$FETCH_OUTPUT_DIR" || return 1
+        fi
+        run cd "$FETCH_OUTPUT_DIR" || return 1
+        run git clone --recursive "$FETCH_URL" "$FETCH_OUTPUT_NAME"
     fi
 }
 
@@ -631,7 +659,7 @@ os() {
         printf "current-machine-os-kind : %s\n" "$(os kind)"
         printf "current-machine-os-type : %s\n" "$(os type)"
         printf "current-machine-os-name : %s\n" "$(os name)"
-        printf "current-machine-os-vers : %s\n" "$(os version)"
+        printf "current-machine-os-vers : %s\n" "$(os vers)"
         printf "current-machine-os-arch : %s\n" "$(os arch)"
         printf "current-machine-os-libc : %s\n" "$(os libc)"
     elif [ $# -eq 1 ] ; then
@@ -645,7 +673,7 @@ os type
 os arch
 os libc
 os name
-os version
+os vers
 EOF
                 ;;
             -V|--version) echo '2021.03.28.23' ;;
@@ -712,7 +740,7 @@ EOF
                         return 1
                 esac
                 ;;
-            version)
+            vers)
                 case $(os kind) in
                     freebsd) freebsd-version ;;
                     openbsd) uname -r ;;
@@ -2025,7 +2053,7 @@ EOF
     NATIVE_OS_KIND=$(os kind)
     NATIVE_OS_TYPE=$(os type)
     NATIVE_OS_NAME=$(os name)
-    NATIVE_OS_VERS=$(os version)
+    NATIVE_OS_VERS=$(os vers)
     NATIVE_OS_ARCH=$(os arch)
     NATIVE_OS_LIBC=$(os libc)
     echo "NATIVE_OS_KIND  = $NATIVE_OS_KIND"
