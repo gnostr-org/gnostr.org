@@ -9,7 +9,7 @@ gen_config_pre() {
     # https://lwn.net/Articles/839395/
     # configure.ac:242: warning: The macro `AC_PROG_CC_C99' is obsolete.
     if command_exists_in_filesystem_and_version_matched autoconf ge '2.70' ; then
-       sed_in_place '/AC_PROG_CC_C99/d' configure.ac m4/ax_prog_cc_for_build.m4
+       sed_in_place '/AC_PROG_CC_C99/d' configure.ac
     fi
 }
 
