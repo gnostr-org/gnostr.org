@@ -2,7 +2,7 @@
 
 # https://github.com/leleliu008/autogen.sh
 
-cd "$(dirname "$0")" || exit 1
+
 
 COLOR_RED='\033[0;31m'          # Red
 COLOR_GREEN='\033[0;32m'        # Green
@@ -448,19 +448,15 @@ __fetch_archive_via_tools() {
     fi
 
     case $AVAILABLE_FETCH_TOOL in
-        curl)  run curl --fail --retry 20 --retry-delay 30 --location -o "$FETCH_OUTPUT_PATH" "\"$FETCH_URL\"" ;;
-        wget)  run wget --timeout=60 -O "$FETCH_OUTPUT_PATH" "\"$FETCH_URL\"" ;;
-        http)  run http --timeout=60 -o "$FETCH_OUTPUT_PATH" "\"$FETCH_URL\"" ;;
+        curl)  run curl --fail --retry 20 --retry-delay 30 --location -o "$FETCH_OUTPUT_PATH" "'$FETCH_URL'" ;;
+        wget)  run wget --timeout=60 -O "$FETCH_OUTPUT_PATH" "'$FETCH_URL'" ;;
+        http)  run http --timeout=60 -o "$FETCH_OUTPUT_PATH" "'$FETCH_URL'" ;;
         lynx)  run lynx -source "$FETCH_URL" > "\"$FETCH_OUTPUT_PATH\"" ;;
-        aria2c)run aria2c -d "$FETCH_OUTPUT_DIR" -o "$FETCH_OUTPUT_NAME" "\"$FETCH_URL\"" ;;
-        axel)  run axel -o "$FETCH_OUTPUT_PATH" "\"$FETCH_URL\"" ;;
+        aria2c)run aria2c -d "$FETCH_OUTPUT_DIR" -o "$FETCH_OUTPUT_NAME" "'$FETCH_URL'" ;;
+        axel)  run axel -o "$FETCH_OUTPUT_PATH" "'$FETCH_URL'" ;;
     esac
 
-    if [ $? -eq 0 ] ; then
-        success "Fetched to $FETCH_OUTPUT_PATH success."
-    else
-        die "Fetched to $FETCH_OUTPUT_PATH failed."
-    fi
+    [ $? -eq 0 ] || return 1
 
     if [ -n "$FETCH_SHA256" ] ; then
         die_if_sha256sum_mismatch "$FETCH_OUTPUT_PATH" "$FETCH_SHA256"
@@ -844,6 +840,7 @@ version_of_command() {
          node) "$1" --version 2> /dev/null | head -n 1 | cut -d 'v' -f2 ;;
           zsh) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f2 ;;
          bash) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f4 | cut -d '(' -f1 ;;
+       base64) "$1" --version 2> /dev/null | head -n 1 | cut -d ' ' -f4 ;;
             *) "$1" --version 2> /dev/null | head -n 1
     esac
 }
@@ -1367,6 +1364,8 @@ get_brew_package_name_by_command_name() {
     autoreconf) echo "autoconf" ;;
     autoheader) echo "automake" ;;
     autopoint)  echo "gettext"  ;;
+    python|python3)
+                echo 'python@3.9' ;;
         *)      echo "$1"
     esac
 }
@@ -1487,9 +1486,8 @@ __install_command_via_package_manager() {
 }
 
 # examples:
-# pkg-config ge 0.18
-# python3    ge 3.5
-# make
+# __install_command_via_available_package_manager python3 ge 3.5
+# __install_command_via_available_package_manager make
 __install_command_via_available_package_manager() {
     command_exists_in_filesystem_and_version_matched $@ && return 0
  
@@ -1609,7 +1607,7 @@ __install_command_via_fetch_prebuild_binary() {
         fi
     fi
 
-    run fetch "$PREBUILD_BINARY_FETCH_URL" --output-dir="$PREBUILD_BINARY_INSTALL_DIR" --output-name="$PREBUILD_BINARY_FILENAME" || return 1
+    fetch "$PREBUILD_BINARY_FETCH_URL" --output-dir="$PREBUILD_BINARY_INSTALL_DIR" --output-name="$PREBUILD_BINARY_FILENAME" || return 1
 
     case $PREBUILD_BINARY_FILENAME_SUFFIX in
         .zip)
@@ -1654,6 +1652,35 @@ __get_prebuild_binary_fetch_url_by_command_name() {
     esac
 }
 
+__install_command_via_run_install_script() {
+    case $1 in
+        rustup)
+            # https://www.rust-lang.org/tools/install
+
+            unset __RUSTUP_INSTALL_SCRIPT_RUN_SHELL__
+            __RUSTUP_INSTALL_SCRIPT_RUN_SHELL__=$(command -v bash || command -v zsh || command -v dash)
+            if [ -z "$__RUSTUP_INSTALL_SCRIPT_RUN_SHELL__" ] ; then
+                handle_dependency required command bash || return 1
+            fi
+            __RUSTUP_INSTALL_SCRIPT_RUN_SHELL__=$(command -v bash)
+            if [ -z "$__RUSTUP_INSTALL_SCRIPT_RUN_SHELL__" ] ; then
+                warn "install bash failed."
+                return 1
+            fi
+
+            unset __RUSTUP_INSTALL_SCRIPT_DIR__
+            __RUSTUP_INSTALL_SCRIPT_DIR__=$(mktemp -d) || return 1
+            fetch 'https://sh.rustup.rs' --output-dir="$__RUSTUP_INSTALL_SCRIPT_DIR__" --output-name='rustup-init' || return 1
+
+            run "$__RUSTUP_INSTALL_SCRIPT_RUN_SHELL__ $__RUSTUP_INSTALL_SCRIPT_DIR__/rustup-init -y" || return 1
+
+            export CARGO_HOME=$HOME/.cargo
+            export PATH="$CARGO_HOME/bin:$PATH"
+            ;;
+        *)  return 1
+    esac
+}
+
 __install_command_via_pip() {
     [ -z "$(get_pip3_package_name_by_command_name "$1")" ] && return 1
 
@@ -1678,15 +1705,16 @@ __install_command_via_pip() {
 }
 
 # examples:
-# pkg-config ge 0.18
-# python3    ge 3.5
-# make
+# __install_command python3 ge 3.5
+# __install_command make
 __install_command() {
     command_exists_in_filesystem_and_version_matched $@ && return 0
 
-    __install_command_via_pip $@ && return 0
-    __install_command_via_available_package_manager $@ && return 0
-    __install_command_via_fetch_prebuild_binary $@
+    __install_command_via_run_install_script $@         && return 0
+    __install_command_via_pip $@                        && return 0
+    __install_command_via_available_package_manager $@  && return 0
+    __install_command_via_fetch_prebuild_binary $@      && return 0
+    return 1
 }
 
 # examples:
@@ -1721,6 +1749,7 @@ handle_dependency() {
                             return 0
                         fi
                     done
+                    return 1
                     ;;
                 *)  __install_command $@
             esac
@@ -2134,5 +2163,7 @@ EOF
     echo
     success "Done."
 }
+
+cd "$(dirname "$0")" || exit 1
 
 main $@
