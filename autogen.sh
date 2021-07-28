@@ -4,6 +4,14 @@
 
 
 
+if command -v realpath > /dev/null ; then
+    unset CURRENT_SCRIPT_FILEPATH
+    CURRENT_SCRIPT_FILEPATH=$(realpath $0) || exit 1
+else
+    printf "%b\n" "${COLOR_RED}[✘] command not found: realpath${COLOR_OFF}"
+    exit 1
+fi
+
 COLOR_RED='\033[0;31m'          # Red
 COLOR_GREEN='\033[0;32m'        # Green
 COLOR_YELLOW='\033[0;33m'       # Yellow
@@ -195,6 +203,14 @@ nproc() {
     else
         echo 4
     fi
+}
+
+is_integer () {
+    case "${1#[+-]}" in
+        (*[!0123456789]*) return 1 ;;
+        ('')              return 1 ;;
+        (*)               return 0 ;;
+    esac
 }
 
 format_unix_timestamp() {
@@ -429,7 +445,7 @@ __fetch_archive_via_tools() {
     if [ -f "$FETCH_OUTPUT_PATH" ] ; then
         if [ -n "$FETCH_SHA256" ] ; then
             if file_exists_and_sha256sum_matched "$FETCH_OUTPUT_PATH" "$FETCH_SHA256" ; then
-                success "$FETCH_OUTPUT_PATH eval."
+                success "$FETCH_OUTPUT_PATH already have been downloaded."
                 return 0
             fi
         fi
@@ -527,6 +543,35 @@ fetch() {
         *.git) __fetch_via_git ;;
         *)     __fetch_archive_via_tools ;;
     esac
+}
+
+# }}}
+##############################################################################
+# {{{ __upgrade_self
+
+# __upgrade_self <UPGRAGE_URL>
+__upgrade_self() {
+    set -e
+
+    unset FETCH_SELF_OUTPUT_DIR
+    FETCH_SELF_OUTPUT_DIR=$(mktemp -d)
+
+    unset FETCH_SELF_OUTPUT_PATH
+    FETCH_SELF_OUTPUT_PATH="$FETCH_SELF_OUTPUT_DIR/self"
+
+    fetch "$1" --output-path="$FETCH_SELF_OUTPUT_PATH"
+
+    run chmod a+x "$FETCH_SELF_OUTPUT_PATH"
+
+    __upgrade_self_exit() {
+        if [ -w "$CURRENT_SCRIPT_FILEPATH" ] ; then
+            run      cp "$FETCH_SELF_OUTPUT_PATH" "$CURRENT_SCRIPT_FILEPATH"
+        else
+            run sudo cp "$FETCH_SELF_OUTPUT_PATH" "$CURRENT_SCRIPT_FILEPATH"
+        fi
+    }
+
+    trap __upgrade_self_exit EXIT
 }
 
 # }}}
@@ -763,6 +808,7 @@ EOF
 # {{{ version
 
 version_of_python_module() {
+    unset PIP_COMMAND
     PIP_COMMAND=$(command -v pip3 || command -v pip)
     if [ -z "$PIP_COMMAND" ] ; then
         die "can't found pip command."
@@ -1359,6 +1405,8 @@ get_brew_package_name_by_command_name() {
       ps2pdf) echo "ghostscript" ;;
      rst2man.py|rst2html.py)
               echo "docutils" ;;
+    grpc_cpp_plugin)
+                echo "grpc" ;;
     glibtool|libtoolize|glibtoolize)
                 echo "libtool"  ;;
     autoreconf) echo "autoconf" ;;
@@ -1439,20 +1487,32 @@ __install_package_via_package_manager() {
     package_exists_in_repo_and_version_matched $@ || return 1
 
     case $1 in
-        pip3) case $NATIVE_OS_KIND in
+        pip3)
+            case $NATIVE_OS_KIND in
                 *bsd|linux) run pip3 install --user -U "$2" ;;
                 *)          run pip3 install        -U "$2"
-              esac
-              ;;
-        pip)  case $NATIVE_OS_KIND in
+            esac
+            ;;
+        pip)
+            case $NATIVE_OS_KIND in
                 *bsd|linux) run pip  install --user -U "$2" ;;
                 *)          run pip  install        -U "$2"
-              esac
-              ;;
+            esac
+            ;;
+        brew)
+            if run brew install "$2" ; then
+                if [ "$(brew info --json=v2 "$2" | grep keg_only | sed 's/ //g' | cut -d: -f2 | sed 's/,//')" = 'true' ] ; then
+                    if [ -d "$(brew --prefix "$2")/bin" ] ; then
+                        export PATH="$(brew --prefix "$2")/bin:$PATH"
+                    fi
+                fi
+            else
+                return 1
+            fi
+            ;;
         pkg)     run $sudo pkg install -y "$2" ;;
         pkgin)   run $sudo pkgin -y install "$2" ;;
         pkg_add) run $sudo pkg_add "$2" ;;
-        brew)    run brew install "$2" ;;
         apt)     run $sudo apt     -y install "$2" ;;
         apt-get) run $sudo apt-get -y install "$2" ;;
         dnf)     run $sudo dnf -y install "$2" ;;
@@ -1668,6 +1728,8 @@ __install_command_via_run_install_script() {
                 return 1
             fi
 
+            print "🔥  ${COLOR_YELLOW}required command${COLOR_OFF} ${COLOR_GREEN}$1${COLOR_OFF}${COLOR_YELLOW}, but${COLOR_OFF} ${COLOR_GREEN}$1${COLOR_OFF} ${COLOR_YELLOW}command not found, try to install it via running install script.${COLOR_OFF}\n"
+
             unset __RUSTUP_INSTALL_SCRIPT_DIR__
             __RUSTUP_INSTALL_SCRIPT_DIR__=$(mktemp -d) || return 1
             fetch 'https://sh.rustup.rs' --output-dir="$__RUSTUP_INSTALL_SCRIPT_DIR__" --output-name='rustup-init' || return 1
@@ -1718,13 +1780,13 @@ __install_command() {
 }
 
 # examples:
-# handle_dependency required command pkg-config ge 0.18
-# handle_dependency required command python     ge 3.5
-# handle_dependency required python  libxml2    ge 2.19
+# handle_dependency required command   pkg-config ge 0.18
+# handle_dependency required command   python     ge 3.5
+# handle_dependency required module.py libxml2    ge 2.19
 #
-# handle_dependency optional command pkg-config ge 0.18
-# handle_dependency optional command python     ge 3.5
-# handle_dependency optional python  libxml2    ge 2.19
+# handle_dependency optional command   pkg-config ge 0.18
+# handle_dependency optional command   python     ge 3.5
+# handle_dependency optional module.py libxml2    ge 2.19
 handle_dependency() {
     [ "$1" = 'required' ] || return 0
 
@@ -1754,42 +1816,16 @@ handle_dependency() {
                 *)  __install_command $@
             esac
             ;;
-        python|python3)
+        module.py)
             shift
-            if command_exists_in_filesystem python3 ; then
-                if ! python3 -c "import $1" 2> /dev/null ; then
-                    if command_exists_in_filesystem pip3 ; then
-                        pip3 install -U "$1" || return 1
-                    fi
-                fi
-            elif command_exists_in_filesystem python ; then
-                if ! python -c "import $1" 2> /dev/null ; then
-                    if command_exists_in_filesystem pip ; then
-                        pip install -U "$1" || return 1
-                    fi
-                fi
-            fi
+            python_module install "$1"
             ;;
-        perl)
+        module.pl)
             shift
-            if ! command_exists_in_filesystem perl ; then
-                 handle_dependency required command perl
-            fi
-            if ! perl_module_installed "$1" ; then
-                if  command_exists_in_filesystem cpan ; then
-                    cpan -i "$1" || return 1
-                fi
-            fi
+            perl_module install "$1"
             ;;
         *) die "$1 not support."
     esac
-}
-
-# check if the given perl module is installed
-# examples:
-# perl_module_installed lixml2
-perl_module_installed() {
-    perl -M"$1" -le 'print "installed"' > /dev/null 2>&1
 }
 
 __handle_required_dependencies() {
@@ -1806,25 +1842,25 @@ __handle_required_dependencies() {
 # {{{ __printf_dependencies
 
 # examples:
-# __printf_dependency required command pkg-config ge 0.18
-# __printf_dependency required command python     ge 3.5
-# __printf_dependency required python  libxml2    ge 2.19
+# __printf_dependency required command   pkg-config ge 0.18
+# __printf_dependency required command   python     ge 3.5
+# __printf_dependency required module.py libxml2    ge 2.19
 #
-# __printf_dependency optional command pkg-config ge 0.18
-# __printf_dependency optional command python     ge 3.5
-# __printf_dependency optional python  libxml2    ge 2.19
+# __printf_dependency optional command   pkg-config ge 0.18
+# __printf_dependency optional command   python     ge 3.5
+# __printf_dependency optional module.py libxml2    ge 2.19
 __printf_dependency() {
-    printf "%-7s %-15s %-2s %-10s %-10s %s\n" "$1" "$2" "$3" "$4" "$5" "$6"
+    printf "%-10s %-15s %-2s %-10s %-10s %s\n" "$1" "$2" "$3" "$4" "$5" "$6"
 }
 
 # examples:
-# printf_dependency required command pkg-config ge 0.18
-# printf_dependency required command python     ge 3.5
-# printf_dependency required python  libxml2    ge 2.19
+# printf_dependency required command   pkg-config ge 0.18
+# printf_dependency required command   python     ge 3.5
+# printf_dependency required module.py libxml2    ge 2.19
 #
-# printf_dependency optional command pkg-config ge 0.18
-# printf_dependency optional command python     ge 3.5
-# printf_dependency optional python  libxml2    ge 2.19
+# printf_dependency optional command   pkg-config ge 0.18
+# printf_dependency optional command   python     ge 3.5
+# printf_dependency optional module.py libxml2    ge 2.19
 printf_dependency() {
     case $2 in
         command)
@@ -1843,11 +1879,11 @@ printf_dependency() {
                 *)  __printf_dependency "$2" "$3" "$4" "$5" "$(version_of_command $3)" "$(command -v $3)"
             esac
             ;;
-        python)
-            __printf_dependency "$2" "$3" "$4" "$5" "$(version_of_python_module $3)" "$(location_of_python_module $3)"
+        module.py)
+            __printf_dependency "$2" "$3" "$4" "$5" "$(python_module get version "$item")" "$(python_module get location "$item")"
             ;;
-        perl)
-            __printf_dependency "$2" "$3" "$4" "$5" "" ""
+        module.pl)
+            __printf_dependency "$2" "$3" "$4" "$5" "$(perl_module get version "$item")" "$(perl_module get location "$item")"
             ;;
         *)  die "$2: type not support."
     esac
@@ -1881,15 +1917,91 @@ __printf_optional_dependencies() {
 
 # }}}
 ##############################################################################
-# {{{ location_of_python_module
+# {{{ python_module
 
-location_of_python_module() {
-    PIP_COMMAND=$(command -v pip3 || command -v pip)
-    if [ -z "$PIP_COMMAND" ] ; then
-        die "can't found pip command."
-    else
-        "$PIP_COMMAND" show $1 | grep 'Location:' | cut -d ' ' -f2
-    fi
+# examples:
+# python_module is  installed libxml2
+# python_module get version   libxml2
+# python_module get location  libxml2
+# python_module install       libxml2
+python_module() {
+    case $1 in
+        is)
+            [ $# -eq 3 ] || die "[python_module is] command accept 2 arguments."
+
+            handle_dependency required command python3:python3.9:python3.8:python3.7:python3.6:python3.5:python
+            handle_dependency required command pip3:pip3.9:pip3.8:pip3.7:pip3.6:pip3.5:pip
+
+            __PYTHON_COMMAND__=$(command -v python3 || command -v python3.9 || command -v python3.8 || command -v python3.7 || command -v python3.6 || command -v python3.5 || command -v python || echo python)
+            __PIP_COMMAND__=$(command -v pip3 || command -v pip3.9 || command -v pip3.8 || command -v pip3.7 || command -v pip3.6 || command -v pip3.5 || command -v pip || echo pip)
+
+            case $2 in
+                installed)  "$__PYTHON_COMMAND__" -c "import $3" 2> /dev/null ;;
+                *) die "python_module is $2: not support."
+            esac
+            ;;
+        get)
+            [ $# -eq 3 ] || die "[python_module get] command accept 2 arguments."
+
+            handle_dependency required command python3:python3.9:python3.8:python3.7:python3.6:python3.5:python
+            handle_dependency required command pip3:pip3.9:pip3.8:pip3.7:pip3.6:pip3.5:pip
+
+            __PYTHON_COMMAND__=$(command -v python3 || command -v python3.9 || command -v python3.8 || command -v python3.7 || command -v python3.6 || command -v python3.5 || command -v python || echo python)
+            __PIP_COMMAND__=$(command -v pip3 || command -v pip3.9 || command -v pip3.8 || command -v pip3.7 || command -v pip3.6 || command -v pip3.5 || command -v pip || echo pip)
+
+            case $2 in
+                version)  "$__PIP_COMMAND__" show "$3" 2> /dev/null | grep 'Version:'  | cut -d ' ' -f2 ;;
+                location) "$__PIP_COMMAND__" show "$3" 2> /dev/null | grep 'Location:' | cut -d ' ' -f2 ;;
+                *) die "python_module get $2: not support."
+            esac
+            ;;
+        install)
+            [ -z "$2" ] && die "please specify a python module name."
+            if ! python_module is installed "$2" ; then
+                warn "required python module ${COLOR_GREEN}$2${COLOR_OFF}, but ${COLOR_GREEN}$2${COLOR_OFF} python module not found, try to install it via ${COLOR_GREEN}$__PIP_COMMAND__${COLOR_OFF}"
+                run "$__PIP_COMMAND__" install -U pip  || return 1
+                run "$__PIP_COMMAND__" install -U "$2" || return 1
+            fi
+            ;;
+        *)  die "python_module $1: not support."
+    esac
+}
+
+# }}}
+##############################################################################
+# {{{ perl_module
+
+# examples:
+# perl_module is  installed libxml2
+# perl_module get version   libxml2
+# perl_module get location  libxml2
+# perl_module install       libxml2
+perl_module() {
+    case $1 in
+        is)
+            [ $# -eq 4 ] || die "perl_module command accept 4 arguments."
+            handle_dependency required command perl
+            case $2 in
+                installed)  perl -M"$3" -le 'print "installed"' > /dev/null 2>&1 ;;
+                *) die "perl_module is $2: not support."
+            esac
+            ;;
+        get)
+            ;;
+        install)
+            if ! perl_module is installed "$3" ; then
+                handle_dependency required command cpan:cpanm
+                if   command_exists_in_filesystem cpan  ; then
+                    cpan -i "$3"
+                elif command_exists_in_filesystem cpanm ; then
+                    cpanm "$3"
+                else
+                    die "no perl module installer found."
+                fi
+            fi
+            ;;
+        *)  die "perl_module $1: not support."
+    esac
 }
 
 # }}}
@@ -2003,11 +2115,21 @@ main() {
 Usage:
 ./autogen.sh -h | --help
 ./autogen.sh -V | --version
+
+./autogen.sh upgrade-self
+
 ./autogen.sh [ --rc-file=FILE | -x | -d ]
 EOF
             return 0
             ;;
-        -V|--version) echo '1.0.0' ; return 0 ;;
+        -V|--version)
+            echo '1.0.0'
+            return 0
+            ;;
+        upgrade-self)
+            __upgrade_self 'https://raw.githubusercontent.com/leleliu008/autogen.sh/master/autogen.sh'
+            return 0
+            ;;
     esac
 
     unset DEBUG
@@ -2103,7 +2225,7 @@ EOF
 
     die_if_file_is_not_exist configure.ac
 
-    PROJECT_DIR="$PWD"
+    PROJECT_DIR=$(dirname "$CURRENT_SCRIPT_FILEPATH")
 
     # https://www.gnu.org/software/autoconf/manual/autoconf-2.69/html_node/Initializing-configure.html
     PROJECT_NAME=$(grep 'AC_INIT\s*(\[.*' configure.ac | sed 's/AC_INIT\s*(\[\(.*\)\],.*/\1/')
@@ -2163,7 +2285,5 @@ EOF
     echo
     success "Done."
 }
-
-cd "$(dirname "$0")" || exit 1
 
 main $@
