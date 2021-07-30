@@ -553,10 +553,17 @@ fetch() {
 __upgrade_self() {
     set -e
 
-    handle_dependency required command realpath
-
     unset CURRENT_SCRIPT_REALPATH
-    CURRENT_SCRIPT_REALPATH=$(realpath $CURRENT_SCRIPT_FILEPATH)
+
+    # https://unix.stackexchange.com/questions/136494/whats-the-difference-between-realpath-and-readlink-f#:~:text=GNU%20coreutils%20introduced%20a%20realpath,in%20common%20with%20GNU%20readlink%20.
+    if command -v realpath > /dev/null ; then
+        CURRENT_SCRIPT_REALPATH=$(realpath $CURRENT_SCRIPT_FILEPATH)
+    elif command -v readlink > /dev/null && readlink -f xx > /dev/null 2>&1 ; then
+        CURRENT_SCRIPT_REALPATH=$(readlink -f $CURRENT_SCRIPT_FILEPATH)
+    else
+        handle_dependency required command realpath || return 1
+        CURRENT_SCRIPT_REALPATH=$(realpath $CURRENT_SCRIPT_FILEPATH) || return 1
+    fi
 
     unset FETCH_SELF_OUTPUT_DIR
     FETCH_SELF_OUTPUT_DIR=$(mktemp -d)
@@ -1257,6 +1264,7 @@ get_xbps_package_name_by_command_name() {
         find) echo 'findutils';;
         diff) echo 'diffutils';;
      objcopy) echo 'binutils' ;;
+    realpath) echo 'coreutils';;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
       rst2man|rst2html)
@@ -1281,6 +1289,7 @@ get_apk_package_name_by_command_name() {
         find) echo 'findutils';;
         diff) echo 'diffutils';;
      objcopy) echo 'binutils' ;;
+    realpath) echo 'coreutils';;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
       rst2man|rst2html)
@@ -1307,6 +1316,7 @@ get_zypper_package_name_by_command_name() {
         find) echo 'findutils';;
         diff) echo 'diffutils';;
      objcopy) echo 'binutils' ;;
+    realpath) echo 'coreutils';;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
       rst2man|rst2html)
@@ -1333,6 +1343,7 @@ get_dnf_package_name_by_command_name() {
         find) echo 'findutils';;
         diff) echo 'diffutils';;
      objcopy) echo 'binutils' ;;
+    realpath) echo 'coreutils';;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
       rst2man|rst2html)
@@ -1357,6 +1368,7 @@ get_yum_package_name_by_command_name() {
         find) echo 'findutils';;
         diff) echo 'diffutils';;
      objcopy) echo 'binutils' ;;
+    realpath) echo 'coreutils';;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
     sphinx-build) echo "python-sphinx" ;;
@@ -1383,6 +1395,7 @@ get_apt_package_name_by_command_name() {
         diff) echo 'diffutils';;
         xz)   echo 'xz-utils' ;;
      objcopy) echo 'binutils' ;;
+    realpath) echo 'coreutils';;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
       rst2man|rst2html)
@@ -1690,34 +1703,59 @@ __install_command_via_fetch_prebuild_binary() {
 }
 
 # examples:
-# pkg-config ge 0.18
-# python3    ge 3.5
-# make
+# __get_prebuild_binary_fetch_url_by_command_name python3 ge 3.5
+# __get_prebuild_binary_fetch_url_by_command_name cmake
 __get_prebuild_binary_fetch_url_by_command_name() {
-    case $1 in
-        python3|python)
-            case $NATIVE_OS_KIND in
-                linux)
-                    if [ "$NATIVE_OS_LIBC" = 'glibc' ] && [ "$NATIVE_OS_ARCH" = 'x86_64' ] ; then
-                        # https://github.com/leleliu008/python-prebuild
-                        echo "https://github.com/leleliu008/python-prebuild/releases/download/3.9.5/python-3.9.5-x86_64-linux-glibc.tar.xz"
-                    fi
-            esac
-            ;;
-        cmake)
-            case $NATIVE_OS_KIND in
-                linux)
-                    if [ "$NATIVE_OS_LIBC" = 'glibc' ] ; then
-                        # https://cmake.org/download
-                        echo "https://github.com/Kitware/CMake/releases/download/v3.20.2/cmake-3.20.2-linux-x86_64.tar.gz"
-                    fi
-                    ;;
-                darwin)
-                    if ! command_exists_in_filesystem brew ; then
-                        echo "https://github.com/Kitware/CMake/releases/download/v3.20.2/cmake-3.20.2-macos-universal.tar.gz"
-                    fi
-            esac
-    esac
+    # https://github.com/leleliu008/python-prebuild
+    # https://cmake.org/download
+{
+    cat <<EOF
+python    |glibc|linux |x86_64|https://github.com/leleliu008/python-prebuild/releases/download/3.9.5/python-3.9.5-x86_64-linux-glibc.tar.xz
+python3   |glibc|linux |x86_64|https://github.com/leleliu008/python-prebuild/releases/download/3.9.5/python-3.9.5-x86_64-linux-glibc.tar.xz
+git       |glibc|linux |x86_64|https://github.com/leleliu008/git-prebuild/releases/download/2.30.2/git-2.30.2-x86_64-linux-glibc.tar.xz
+autoconf  |glibc|linux |x86_64|https://github.com/leleliu008/autoconf-prebuild/releases/download/2.69/autoconf-2.69-glibc-linux-x86_64.tar.gz
+autoreconf|glibc|linux |x86_64|https://github.com/leleliu008/autoconf-prebuild/releases/download/2.69/autoconf-2.69-glibc-linux-x86_64.tar.gz
+cmake     |glibc|linux |x86_64|https://github.com/Kitware/CMake/releases/download/v3.20.2/cmake-3.20.2-linux-x86_64.tar.gz
+cmake     |     |darwin|      |https://github.com/Kitware/CMake/releases/download/v3.20.2/cmake-3.20.2-macos-universal.tar.gz
+EOF
+} | while read LINE
+    do
+        LINE=$(echo "$LINE" | sed 's/[[:space:]]//g')
+
+        unset __PB_COMMAND__
+        unset __PB_OS_LIBC__
+        unset __PB_OS_KIND__
+        unset __PB_OS_ARCH__
+        unset __PB_URL__
+
+        __PB_COMMAND__=$(echo "$LINE" | cut -d '|' -f1)
+
+        if [ "$__PB_COMMAND__" != "$1" ] ; then
+            continue
+        fi
+
+        __PB_OS_LIBC__=$(echo "$LINE" | cut -d '|' -f2)
+
+        if [ -n "$__PB_OS_LIBC__" ] && [ "$__PB_OS_LIBC__" != "$NATIVE_OS_LIBC" ] ; then
+            continue
+        fi
+
+        __PB_OS_KIND__=$(echo "$LINE" | cut -d '|' -f3)
+
+        if [ "$__PB_OS_KIND__" != "$NATIVE_OS_KIND" ] ; then
+            continue
+        fi
+
+        __PB_OS_ARCH__=$(echo "$LINE" | cut -d '|' -f4)
+
+        if [ -n "$__PB_OS_ARCH__" ] && [ "$__PB_OS_ARCH__" != "$NATIVE_OS_ARCH" ] ; then
+            continue
+        fi
+
+        __PB_URL__=$(echo "$LINE" | cut -d '|' -f5)
+
+        echo "$__PB_URL__"
+    done
 }
 
 __install_command_via_run_install_script() {
