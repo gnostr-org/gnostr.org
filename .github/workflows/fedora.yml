@@ -18,9 +18,13 @@ jobs:
     container: fedora:${{ matrix.tag }}
 
     steps:
-      - run: dnf --nogpgcheck -y update
-      - run: dnf --nogpgcheck -y install git file
-
+      - name: install git if needed
+      - run: |
+          command -v git > /dev/null && return 0
+          curl -LO https://github.com/leleliu008/git-prebuild/releases/download/2.30.2/git-2.30.2-x86_64-linux-glibc.tar.xz
+          tar xf git-2.30.2-x86_64-linux-glibc.tar.xz -C /opt
+          ln -sf /opt/git-2.30.2-x86_64-linux-glibc/bin/git /usr/bin/git
+      
       - uses: actions/checkout@v2
 
       - run: git clone https://github.com/universal-ctags/ctags
@@ -30,5 +34,4 @@ jobs:
       - run: cd ctags && ./configure --prefix=/usr
       - run: cd ctags && make
       - run: cd ctags && make install
-      - run: file /usr/bin/ctags
       - run: /usr/bin/ctags --version
