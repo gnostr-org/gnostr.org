@@ -21,8 +21,8 @@ jobs:
       - name: install xz  if needed
         run: |
           command -v xz > /dev/null && return 0
-          curl -LO https://github.com/leleliu008/xz-prebuild/releases/download/5.2.5/xz-5.2.5-glibc-linux-x86_64.tar.xz
-          tar vxf xz-5.2.5-glibc-linux-x86_64.tar.xz -C /opt
+          curl -LO https://github.com/leleliu008/xz-prebuild/releases/download/5.2.5/xz-5.2.5-glibc-linux-x86_64.tar.gz
+          tar vxf xz-5.2.5-glibc-linux-x86_64.tar.gz -C /opt
           ln -sf /opt/xz-5.2.5-glibc-linux-x86_64/bin/xz /usr/bin/xz
       
       - name: install git if needed
