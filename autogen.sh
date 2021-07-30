@@ -1639,7 +1639,6 @@ __install_command_via_fetch_prebuild_binary() {
     unset PREBUILD_BINARY_FETCH_URL
     PREBUILD_BINARY_FETCH_URL=$(__get_prebuild_binary_fetch_url_by_command_name "$1")
     if [ -z "$PREBUILD_BINARY_FETCH_URL" ] ; then
-        warn "no fetch url for $@"
         return 1
     fi
 
@@ -1700,6 +1699,15 @@ __install_command_via_fetch_prebuild_binary() {
     if [ -d "$PREBUILD_BINARY_INSTALL_DIR/bin" ] ; then
         export PATH="$PREBUILD_BINARY_INSTALL_DIR/bin:$PATH"
     fi
+
+    case $1 in
+        autoconf)
+            for xx in $(grep '/root/.zpkg/install.d/autoconf' -rl "$PREBUILD_BINARY_INSTALL_DIR")
+            do
+                sed_in_place "s|/root/.zpkg/install.d/autoconf|$PREBUILD_BINARY_INSTALL_DIR|" "$xx"
+            done
+            ;;
+    esac
 }
 
 # examples:
