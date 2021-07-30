@@ -1107,8 +1107,8 @@ get_pkg_add_package_name_by_command_name() {
         gsed) echo 'gnu-sed'  ;;
         find) echo 'findutils';;
         diff) echo 'diffutils';;
-     objcopy) echo 'binutils' ;;
     realpath) echo 'coreutils';;
+     objcopy) echo 'binutils' ;;
       protoc) echo 'protobuf' ;;
       ps2pdf) echo "ghostscript" ;;
     pip3|pip) echo 'py3-pip' ;;
