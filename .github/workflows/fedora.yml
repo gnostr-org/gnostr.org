@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - name: install git if needed
-      - run: |
+        run: |
           command -v git > /dev/null && return 0
           curl -LO https://github.com/leleliu008/git-prebuild/releases/download/2.30.2/git-2.30.2-x86_64-linux-glibc.tar.xz
           tar xf git-2.30.2-x86_64-linux-glibc.tar.xz -C /opt
