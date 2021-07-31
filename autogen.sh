@@ -205,6 +205,14 @@ nproc() {
     fi
 }
 
+own() {
+    if command -v awk > /dev/null ; then
+        ls -ld "$1" | awk '{print $3":"$4}'
+    else
+        ls -ld "$1" | cut -d ' ' -f4,6 | tr ' ' ':'
+    fi
+}
+
 is_integer () {
     case "${1#[+-]}" in
         (*[!0123456789]*) return 1 ;;
@@ -555,35 +563,87 @@ __upgrade_self() {
 
     unset CURRENT_SCRIPT_REALPATH
 
-    # https://unix.stackexchange.com/questions/136494/whats-the-difference-between-realpath-and-readlink-f#:~:text=GNU%20coreutils%20introduced%20a%20realpath,in%20common%20with%20GNU%20readlink%20.
-    if command -v realpath > /dev/null ; then
-        CURRENT_SCRIPT_REALPATH=$(realpath $CURRENT_SCRIPT_FILEPATH)
-    elif command -v readlink > /dev/null && readlink -f xx > /dev/null 2>&1 ; then
-        CURRENT_SCRIPT_REALPATH=$(readlink -f $CURRENT_SCRIPT_FILEPATH)
+    # if file exists and is a symbolic link
+    if [ -L "$CURRENT_SCRIPT_FILEPATH" ] ; then
+        # https://unix.stackexchange.com/questions/136494/whats-the-difference-between-realpath-and-readlink-f#:~:text=GNU%20coreutils%20introduced%20a%20realpath,in%20common%20with%20GNU%20readlink%20.
+        if command -v realpath > /dev/null ; then
+            CURRENT_SCRIPT_REALPATH=$(realpath $CURRENT_SCRIPT_FILEPATH)
+        elif command -v readlink > /dev/null && readlink -f xx > /dev/null 2>&1 ; then
+            CURRENT_SCRIPT_REALPATH=$(readlink -f $CURRENT_SCRIPT_FILEPATH)
+        else
+            handle_dependency required command realpath
+            CURRENT_SCRIPT_REALPATH=$(realpath $CURRENT_SCRIPT_FILEPATH)
+        fi
     else
-        handle_dependency required command realpath || return 1
-        CURRENT_SCRIPT_REALPATH=$(realpath $CURRENT_SCRIPT_FILEPATH) || return 1
+        CURRENT_SCRIPT_REALPATH="$CURRENT_SCRIPT_FILEPATH"
     fi
 
-    unset FETCH_SELF_OUTPUT_DIR
-    FETCH_SELF_OUTPUT_DIR=$(mktemp -d)
+    info "mktemp -d"
+    WORKING_DIR=$(mktemp -d)
 
-    unset FETCH_SELF_OUTPUT_PATH
-    FETCH_SELF_OUTPUT_PATH="$FETCH_SELF_OUTPUT_DIR/self"
+    run cd $WORKING_DIR
 
-    fetch "$1" --output-path="$FETCH_SELF_OUTPUT_PATH"
-
-    run chmod a+x "$FETCH_SELF_OUTPUT_PATH"
+    fetch "$1" --output-path="$WORKING_DIR/self"
 
     __upgrade_self_exit() {
         if [ -w "$CURRENT_SCRIPT_REALPATH" ] ; then
-            run      cp "$FETCH_SELF_OUTPUT_PATH" "$CURRENT_SCRIPT_REALPATH"
+            run      install -m 555 self "$CURRENT_SCRIPT_REALPATH"
         else
-            run sudo cp "$FETCH_SELF_OUTPUT_PATH" "$CURRENT_SCRIPT_REALPATH"
+            run sudo install -m 555 self "$CURRENT_SCRIPT_REALPATH"
         fi
+
+        run rm -rf $WORKING_DIR
     }
 
     trap __upgrade_self_exit EXIT
+}
+
+# }}}
+##############################################################################
+# {{{ __integrate_zsh_completions
+
+# __integrate_zsh_completions <ZSH_COMPLETIONS_SCRIPT_URL>
+__integrate_zsh_completions() {
+    set -e
+
+    ZSH_COMPLETIONS_SCRIPT_FILENAME="_$CURRENT_SCRIPT_FILENAME"
+    ZSH_COMPLETIONS_SCRIPT_OUT_DIR='/usr/local/share/zsh/site-functions'
+    ZSH_COMPLETIONS_SCRIPT_OUT_FILEPATH="$ZSH_COMPLETIONS_SCRIPT_OUT_DIR/$ZSH_COMPLETIONS_SCRIPT_FILENAME"
+
+    info "mktemp -d"
+    WORKING_DIR=$(mktemp -d)
+
+    run cd $WORKING_DIR
+
+    fetch "$1" --output-path="$WORKING_DIR/$ZSH_COMPLETIONS_SCRIPT_FILENAME"
+
+    if [ ! -d "$ZSH_COMPLETIONS_SCRIPT_OUT_DIR" ] ; then
+        run install -d "$ZSH_COMPLETIONS_SCRIPT_OUT_DIR"
+    fi
+
+    # if file exists and is a symbolic link
+    if [ -L "$ZSH_COMPLETIONS_SCRIPT_OUT_FILEPATH" ] ; then
+        # https://unix.stackexchange.com/questions/136494/whats-the-difference-between-realpath-and-readlink-f#:~:text=GNU%20coreutils%20introduced%20a%20realpath,in%20common%20with%20GNU%20readlink%20.
+        if command -v realpath > /dev/null ; then
+            ZSH_COMPLETIONS_SCRIPT_OUT_FILEPATH=$(realpath $ZSH_COMPLETIONS_SCRIPT_OUT_FILEPATH)
+        elif command -v readlink > /dev/null && readlink -f xx > /dev/null 2>&1 ; then
+            ZSH_COMPLETIONS_SCRIPT_OUT_FILEPATH=$(readlink -f $ZSH_COMPLETIONS_SCRIPT_OUT_FILEPATH)
+        else
+            handle_dependency required command realpath
+            ZSH_COMPLETIONS_SCRIPT_OUT_FILEPATH=$(realpath $ZSH_COMPLETIONS_SCRIPT_OUT_FILEPATH)
+        fi
+    fi
+
+    if [ -w "$ZSH_COMPLETIONS_SCRIPT_OUT_FILEPATH" ] ; then
+        run      install -m 644 "$ZSH_COMPLETIONS_SCRIPT_FILENAME" "$ZSH_COMPLETIONS_SCRIPT_OUT_FILEPATH"
+    else
+        run sudo install -m 644 "$ZSH_COMPLETIONS_SCRIPT_FILENAME" "$ZSH_COMPLETIONS_SCRIPT_OUT_FILEPATH"
+    fi
+
+    run rm -rf $WORKING_DIR
+
+    echo
+    warn "you need to run command ${COLOR_GREEN}autoload -U compinit && compinit${COLOR_OFF} ${COLOR_YELLOW}in zsh to make it work.${COLOR_OFF}"
 }
 
 # }}}
@@ -1658,6 +1718,10 @@ __install_command_via_fetch_prebuild_binary() {
     PREBUILD_BINARY_FILENAME_SUFFIX=$(get_suffix_from_filename "$PREBUILD_BINARY_FILENAME")
     PREBUILD_BINARY_FILENAME_PREFIX=$(basename "$PREBUILD_BINARY_FILENAME" "$PREBUILD_BINARY_FILENAME_SUFFIX")
 
+    if [ -z "$PREBUILD_BINARY_INSTALL_PREFIX_DIR" ] ; then
+        PREBUILD_BINARY_INSTALL_PREFIX_DIR='/opt'
+    fi
+
     unset PREBUILD_BINARY_INSTALL_DIR
     PREBUILD_BINARY_INSTALL_DIR="$PREBUILD_BINARY_INSTALL_PREFIX_DIR/$PREBUILD_BINARY_FILENAME_PREFIX"
 
@@ -1854,14 +1918,14 @@ handle_dependency() {
                     for command in $(echo "$1" | tr ':' ' ')
                     do
                         if command_exists_in_filesystem_and_version_matched "$command" $2 $3 ; then
-                            map_set "$MAP_REQUIRED_DEPENDENCIES" "$1" "$command"
+                            map_set MAP_REQUIRED_DEPENDENCIES "$1" "$command"
                             return 0
                         fi
                     done
                     for command in $(echo "$1" | tr ':' ' ')
                     do
                         if __install_command "$command" $2 $3 ; then
-                            map_set "$MAP_REQUIRED_DEPENDENCIES" "$1" "$command"
+                            map_set MAP_REQUIRED_DEPENDENCIES "$1" "$command"
                             return 0
                         fi
                     done
@@ -1921,7 +1985,7 @@ printf_dependency() {
             case $3 in
                 *:*)
                     if [ "$1" = 'required' ] ; then
-                        REQUIRED_ITEM="$(map_get "MAP_REQUIRED_DEPENDENCIES" "$3")"
+                        REQUIRED_ITEM="$(map_get MAP_REQUIRED_DEPENDENCIES "$3")"
                         __printf_dependency "$2" "$REQUIRED_ITEM" "$4" "$5" "$(version_of_command $REQUIRED_ITEM)" "$(command -v $REQUIRED_ITEM)"
                     else
                         for item in $(echo "$3" | tr ':' ' ')
@@ -2206,9 +2270,6 @@ EOF
     unset NATIVE_OS_LIBC
 
     unset AUTOCONF_VERSION_MREQUIRED
-
-    unset MAP_REQUIRED_DEPENDENCIES
-    MAP_REQUIRED_DEPENDENCIES='MAP_REQUIRED_DEPENDENCIES'
 
     unset PREBUILD_BINARY_INSTALL_PREFIX_DIR
     PREBUILD_BINARY_INSTALL_PREFIX_DIR='/opt'
