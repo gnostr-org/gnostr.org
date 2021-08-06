@@ -36,15 +36,15 @@ success() {
 }
 
 warn() {
-    print "${COLOR_YELLOW}🔥  $*\n${COLOR_OFF}"
+    print "${COLOR_YELLOW}🔥  $*\n${COLOR_OFF}" >&2
 }
 
 error() {
-    print "${COLOR_RED}[✘] $*\n${COLOR_OFF}"
+    print "${COLOR_RED}[✘] $*\n${COLOR_OFF}" >&2
 }
 
 die() {
-    print "${COLOR_RED}[✘] $*\n${COLOR_OFF}"
+    print "${COLOR_RED}[✘] $*\n${COLOR_OFF}" >&2
     exit 1
 }
 
@@ -1738,7 +1738,7 @@ __install_command_via_fetch_prebuild_binary() {
             fi
         else
             if [ -r "$PREBUILD_BINARY_INSTALL_PREFIX_DIR" ] && [ -w "$PREBUILD_BINARY_INSTALL_PREFIX_DIR" ] && [ -x "$PREBUILD_BINARY_INSTALL_PREFIX_DIR" ] ; then
-                install -o $(whoami) -d "$PREBUILD_BINARY_INSTALL_DIR" || return 1
+                     install -o $(whoami) -d "$PREBUILD_BINARY_INSTALL_DIR" || return 1
             else
                 sudo install -o $(whoami) -d "$PREBUILD_BINARY_INSTALL_DIR" || return 1
             fi
