@@ -70,6 +70,10 @@ __check_if_c_compiler_works() {
         run cat test.c
     fi
 
+    if command -v apk > /dev/null ;
+       run $sudo apk add libc-dev
+    fi
+
     run "$HOST_CC $HOST_CFLAGS test.c"
     run ls
     if file_exists a.exe ; then

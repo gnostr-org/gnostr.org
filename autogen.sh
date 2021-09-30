@@ -765,7 +765,7 @@ __integrate_zsh_completions() {
     else
         ZSH_COMPLETIONS_SCRIPT_OUT_DIR="$(dirname "$ZSH_COMPLETIONS_SCRIPT_OUT_FILEPATH")"
         if [ ! -d "$ZSH_COMPLETIONS_SCRIPT_OUT_DIR" ] ; then
-            run install -d "$ZSH_COMPLETIONS_SCRIPT_OUT_DIR"
+            run install -d "$ZSH_COMPLETIONS_SCRIPT_OUT_DIR" || run sudo install -d "$ZSH_COMPLETIONS_SCRIPT_OUT_DIR"
         fi
         run install -m 644 "$ZSH_COMPLETIONS_SCRIPT_FILENAME" "$ZSH_COMPLETIONS_SCRIPT_OUT_FILEPATH"
     fi
@@ -913,7 +913,7 @@ __get_os_name_from_os_type() {
         netbsd)  echo 'NetBSD'  ;;
         darwin)  sw_vers -productName ;;
         linux)
-            if [ "$(uname -o 2>/dev/null)" = Android ] ; then
+            if [ "$(uname -o 2>/dev/null || true)" = Android ] ; then
                 echo Android
             else
                 __get_os_name_from_uname_a ||
@@ -953,7 +953,7 @@ __get_os_sub_system() {
         mingw64*) echo "mingw64" ;;
         cygwin*)  echo 'cygwin'  ;;
         *)
-            if [ "$(uname -o 2>/dev/null)" = Android ] ; then
+            if [ "$(uname -o 2>/dev/null || true)" = Android ] ; then
                 if [ -n "$TERMUX_VERSION" ] ; then
                     echo termux
                 fi
@@ -969,7 +969,7 @@ __get_os_arch() {
 __get_os_libc_from_os_type() {
     case $1 in
         linux)
-            if [ "$(uname -o 2>/dev/null)" = Android ] ; then
+            if [ "$(uname -o 2>/dev/null || true)" = Android ] ; then
                 echo bionic
                 return 0
             fi
@@ -1544,10 +1544,9 @@ get_package_name_by_command_name_in_package_manager_xbps() {
 
 get_package_name_by_command_name_in_package_manager_apk() {
     case $1 in
-      cc|gcc) echo 'gcc libc-dev' ;;
+          cc) echo 'gcc'   ;;
          c++) echo 'g++'   ;;
-     clang|clang++)
-              echo 'clang libc-dev' ;;
+     clang++) echo 'clang' ;;
          gm4) echo 'm4'    ;;
         gsed) echo 'gnu-sed'  ;;
         find) echo 'findutils';;
