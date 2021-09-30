@@ -1,28 +1,54 @@
 # autogen.sh
 `autogen.sh` is a `POSIX` shell script to manage `GNU` `Autotools`(`autoconf` `automake`) and other softwares used by your project.
 
-## how to use
+## how to get this sofware
 ```bash
 cd /path/to/your autotools project
 curl -LO https://raw.githubusercontent.com/leleliu008/autogen.sh/master/autogen.sh
 chmod +x autogen.sh
-./autogen.sh
+
+# following instrutions is optional, and these instructions only worked in zsh
+./autogen.sh integrate zsh
+autoload -U compinit && compinit
 ```
 
 ## autogen.sh command usage
-*   print the help infomation of `autogen.sh` command
+*   show help of this command
 
         ./autogen.sh -h
         ./autogen.sh --help
 
-*   print the version of `autogen.sh`
+*   show version of this command
 
         ./autogen.sh -V
         ./autogen.sh --version
 
-*   gen configure
+*   show current machine os and environment varables
 
-        ./autogen.sh [ --rc-file=FILE | -x | -d ]
+        ./autogen.sh env
+
+*   integrate `zsh-completion` script
+
+        ./autogen.sh integrate zsh
+        ./autogen.sh integrate zsh -x
+        ./autogen.sh integrate zsh --china
+        ./autogen.sh integrate zsh --china -x
+        
+    I have provide a zsh-completion script for `autogen.sh`. when you've typed `./autogen.sh` then type `TAB` key, it will auto complete the rest for you.
+
+    **Note**: to apply this feature, you may need to run the command `autoload -U compinit && compinit`
+
+*   upgrade this software
+
+        ./autogen.sh upgrade
+        ./autogen.sh upgrade -x
+        ./autogen.sh upgrade --china
+        ./autogen.sh upgrade --china -x
+
+
+*   generate the configure shell script
+
+        ./autogen.sh configure [ --rc-file=FILE | -x | -d ]
 
 ## autogen.rc
 `autogen.rc` is also a `POSIX` shell script. It is a extension of `autogen.sh`. It will be automatically loaded if it exists. you can specify a different one via `--rc-file=FILE`.
@@ -30,9 +56,9 @@ chmod +x autogen.sh
 a typical example of this file looks like as follows:
 
 ```bash
-regist_dependency required command cc:gcc:clang
-regist_dependency required command pkg-config   ge 0.18
-regist_dependency required command python3:python:python3.5:python3.6:python3.7:python3.8:python3.9 ge 3.5
+regist_dependency required exe cc:gcc:clang
+regist_dependency required exe pkg-config   ge 0.18
+regist_dependency required exe python3:python:python3.5:python3.6:python3.7:python3.8:python3.9 ge 3.5
 
 gen_config_pre() {
     step "gen config pre"
@@ -54,7 +80,7 @@ gen_config_post() {
 
 ### the function should be invoked on top of the `autogen.rc`
 ```
-regist_dependency <required|optional> <command|python|python2|python3|perl> NAME [OP VERSION]
+regist_dependency <required|optional> <exe|py|pm> NAME [OP VERSION]
 ```
 
 ### the function can be declared in `autogen.rc`

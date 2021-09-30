@@ -1,8 +1,8 @@
 # https://github.com/leleliu008/autogen.sh
 
-regist_dependency required command cc:gcc:clang
-regist_dependency required command pkg-config ge 0.18
-regist_dependency required command python3:python:python3.9:python3.8:python3.7:python3.6:python3.5 ge 3.5
+regist_dependency required exe cc:gcc:clang
+regist_dependency required exe pkg-config ge 0.18
+regist_dependency required exe python3:python:python3.9:python3.8:python3.7:python3.6:python3.5 ge 3.5
 
 gen_config_pre() {
     step "gen config pre"
@@ -26,7 +26,7 @@ gen_config_post() {
 
     step "check if $HOST_CC works."
     (__check_if_c_compiler_works) || die "$HOST_CC not works."
-    
+
     step "build packcc"
     . ./config.host
     for item in -DPCC_USE_SYSTEM_STRNLEN ""
@@ -53,15 +53,15 @@ __die_if_no_c_compiler() {
 
     echo "HOST_CC     = $HOST_CC"
     echo "HOST_CFLAGS = $HOST_CFLAGS"
-    
-    [ -z "$HOST_CC" ] && die "can't find a C compiler. you can use HOST_CC and HOST_CFLAGS environment variable"
+
+    [ -n "$HOST_CC" ] || die "can't find a C compiler. you can use HOST_CC and HOST_CFLAGS environment variable"
 }
 
 # run in a subshell
 __check_if_c_compiler_works() {
-    TEMP_DIR_FOR_CHECKING=$(mktemp -d || return 1)
-    run cd "$TEMP_DIR_FOR_CHECKING"   || return 1
-    
+    TEMP_DIR_FOR_CHECKING=$(mktemp -d)
+    run cd "$TEMP_DIR_FOR_CHECKING"
+
     echo '#include<string.h>\nint main() { return 0; }' > test.c
 
     if command_exists_in_filesystem bat ; then
@@ -69,8 +69,8 @@ __check_if_c_compiler_works() {
     else
         run cat test.c
     fi
-    
-    run "$HOST_CC $HOST_CFLAGS test.c" || return 1
+
+    run "$HOST_CC $HOST_CFLAGS test.c"
     run ls
     if file_exists a.exe ; then
         run "echo "host_os_exec_ext='.exe'" > $PROJECT_DIR/config.host"
