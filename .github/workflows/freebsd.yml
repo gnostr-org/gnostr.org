@@ -38,7 +38,7 @@ jobs:
           run ./autogen.sh upgrade
 
           run cd ctags
-          run ./autogen.sh configure -x
+          run ./autogen.sh configure
           run ./configure --prefix=/usr
           run make
           run make install

@@ -767,7 +767,11 @@ __integrate_zsh_completions() {
         if [ ! -d "$ZSH_COMPLETIONS_SCRIPT_OUT_DIR" ] ; then
             run install -d "$ZSH_COMPLETIONS_SCRIPT_OUT_DIR" || run sudo install -d "$ZSH_COMPLETIONS_SCRIPT_OUT_DIR"
         fi
-        run install -m 644 "$ZSH_COMPLETIONS_SCRIPT_FILENAME" "$ZSH_COMPLETIONS_SCRIPT_OUT_FILEPATH"
+        if [ -w "$ZSH_COMPLETIONS_SCRIPT_OUT_DIR" ] ; then
+            run      install -m 644 "$ZSH_COMPLETIONS_SCRIPT_FILENAME" "$ZSH_COMPLETIONS_SCRIPT_OUT_FILEPATH"
+        else
+            run sudo install -m 644 "$ZSH_COMPLETIONS_SCRIPT_FILENAME" "$ZSH_COMPLETIONS_SCRIPT_OUT_FILEPATH"
+        fi
     fi
 
     run rm -rf $WORKING_DIR
