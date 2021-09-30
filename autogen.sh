@@ -1275,7 +1275,7 @@ is_package_available_and_version_matched_in_package_manager() {
     if is_package_available_in_package_manager "$1" "$2" ; then
         if [ $# -eq 4 ] ; then
             case $1 in
-                pkg|apt|apk|yum|dnf) version_match "$(get_package_version_by_package_name_in_package_manager "$1" "$2")" "$3" "$4" ;;
+                apt|apk|yum|dnf) version_match "$(get_package_version_by_package_name_in_package_manager "$1" "$2")" "$3" "$4" ;;
                 *)       return 0 ;;
             esac
         fi
@@ -1290,7 +1290,7 @@ is_package_available_and_version_matched_in_package_manager() {
 # is_package_available_in_package_manager apt automake
 is_package_available_in_package_manager() {
     case $1 in
-        pkg) pkg show "$2" > /dev/null 2>&1 ;;
+        #pkg) pkg show "$2" > /dev/null 2>&1 ;;
         apt) apt show "$2" > /dev/null 2>&1 ;;
         apk) apk info "$2" > /dev/null 2>&1 ;;
         yum) yum info "$2" > /dev/null 2>&1 ;;
