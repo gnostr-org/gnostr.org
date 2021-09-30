@@ -70,7 +70,7 @@ __check_if_c_compiler_works() {
         run cat test.c
     fi
 
-    if command -v apk > /dev/null ;
+    if command -v apk > /dev/null ; then
        run $sudo apk add libc-dev
     fi
 
