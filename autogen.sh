@@ -1546,7 +1546,8 @@ get_package_name_by_command_name_in_package_manager_apk() {
     case $1 in
       cc|gcc) echo 'gcc libc-dev' ;;
          c++) echo 'g++'   ;;
-     clang++) echo 'clang' ;;
+     clang|clang++)
+              echo 'clang libc-dev' ;;
          gm4) echo 'm4'    ;;
         gsed) echo 'gnu-sed'  ;;
         find) echo 'findutils';;
