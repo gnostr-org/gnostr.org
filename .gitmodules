@@ -46,3 +46,6 @@
 [submodule "what-the-changelog"]
 	path = what-the-changelog
 	url = git@github.com:gnostr-org/what-the-changelog.git
+[submodule "github"]
+	path = github
+	url = git@github.com:gnostr-org/.github.git
