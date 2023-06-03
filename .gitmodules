@@ -1,0 +1,48 @@
+[submodule ".github"]
+	path = .github
+	url = git@github.com:gnostr-org/.github.git
+[submodule "desktop"]
+	path = desktop
+	url = git@github.com:gnostr-org/desktop.git
+[submodule "dugite"]
+	path = dugite
+	url = git@github.com:gnostr-org/dugite.git
+[submodule "dugite-native"]
+	path = dugite-native
+	url = git@github.com:gnostr-org/dugite-native.git
+[submodule "registry-js"]
+	path = registry-js
+	url = git@github.com:gnostr-org/registry-js.git
+[submodule "desktop-notifications"]
+	path = desktop-notifications
+	url = git@github.com:gnostr-org/desktop-notifications.git
+[submodule "desktop-trampoline"]
+	path = desktop-trampoline
+	url = git@github.com:gnostr-org/desktop-trampoline.git
+[submodule "desktop-markdown-training"]
+	path = desktop-markdown-training
+	url = git@github.com:gnostr-org/desktop-markdown-training.git
+[submodule "highlighter-tests"]
+	path = highlighter-tests
+	url = git@github.com:gnostr-org/highlighter-tests.git
+[submodule "win32-user-locale"]
+	path = win32-user-locale
+	url = git@github.com:gnostr-org/win32-user-locale.git
+[submodule "node-detect-arm64-translation"]
+	path = node-detect-arm64-translation
+	url = git@github.com:gnostr-org/node-detect-arm64-translation.git
+[submodule "askpass-trampoline"]
+	path = askpass-trampoline
+	url = git@github.com:gnostr-org/askpass-trampoline.git
+[submodule "diff-tests"]
+	path = diff-tests
+	url = git@github.com:gnostr-org/diff-tests.git
+[submodule "electron-notarize"]
+	path = electron-notarize
+	url = git@github.com:gnostr-org/electron-notarize.git
+[submodule "rebase-test-cases"]
+	path = rebase-test-cases
+	url = git@github.com:gnostr-org/rebase-test-cases.git
+[submodule "what-the-changelog"]
+	path = what-the-changelog
+	url = git@github.com:gnostr-org/what-the-changelog.git
