@@ -1,6 +1,7 @@
 [submodule ".github"]
 	path = .github
-	url = git@github.com:gnostr-org/.github.git
+    url = git@github.com:gnostr-org/.github.git
+    ignore = dirty
 [submodule "desktop"]
 	path = desktop
 	url = git@github.com:gnostr-org/desktop.git
